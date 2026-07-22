@@ -127,6 +127,9 @@
             </Grid>
             <TextBlock DockPanel.Dock="Top" x:Name="DeviceStatus" Text="Scanning…" Foreground="{StaticResource Muted}"
                        FontSize="12" Margin="18,2,10,8" TextWrapping="Wrap"/>
+            <CheckBox DockPanel.Dock="Bottom" x:Name="StartupCheck" Margin="18,8,10,14"
+                      Content="Launch at startup" Foreground="{StaticResource Muted}" FontSize="12"
+                      Checked="Startup_Changed" Unchecked="Startup_Changed"/>
             <ListBox x:Name="DeviceList" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}" Margin="8,0"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      HorizontalContentAlignment="Stretch"

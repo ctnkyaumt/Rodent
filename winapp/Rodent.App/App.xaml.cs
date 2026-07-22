@@ -45,6 +45,17 @@ public partial class App : Application
             Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedDevice);
         Automation.Start();
         SetupTray();
+
+        // Created manually (no StartupUri) so a startup launch can begin hidden
+        // in the tray. Device/profile init runs either way — only Show() differs.
+        var win = new MainWindow();
+        MainWindow = win;
+        if (e.Args.Contains("--tray"))
+            // The window needs an HWND even while hidden, or the second-instance
+            // "surface yourself" broadcast would have no listener.
+            new System.Windows.Interop.WindowInteropHelper(win).EnsureHandle();
+        else
+            win.Show();
     }
 
     /// <summary>Persist edited profiles and hand them to the running engine.</summary>

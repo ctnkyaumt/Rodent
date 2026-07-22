@@ -1,7 +1,7 @@
 <Application x:Class="Rodent.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+>
   <Application.Resources>
     <!-- Palette (dark, Adwaita-inspired like Piper) -->
     <Color x:Key="BgColor">#FF1B1D22</Color>

@@ -1,4 +1,6 @@
-# 🐭 Rodent
+<p align="center">
+<img src="docs/rodent/logo.png" width="320"/>
+</p>
 
 **Rodent** is a native Windows manager for Logitech gaming mice — a lightweight
 replacement for G HUB, built on the HID++ 2.0 protocol. No cloud, no accounts,

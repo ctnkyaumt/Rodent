@@ -23,8 +23,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DeviceList.ItemsSource = _devices;
+        InitStartupToggle();
         PageButtons.ProfileSelected += OnAssignmentsProfileSelected;
-        Loaded += async (_, _) => { SetupPerApp(); await LoadDevicesAsync(); };
+        // Not on Loaded: when started with --tray the window stays hidden (Loaded
+        // never fires) but devices and per-app profiles must still come up.
+        Dispatcher.InvokeAsync(async () => { SetupPerApp(); await LoadDevicesAsync(); });
 
         // Hotplug: HidSharp raises Changed on any HID arrival/removal; debounce the
         // burst of events one physical plug generates, then rescan.
@@ -733,6 +736,43 @@ public partial class MainWindow : Window
             }
         }
         cfg.Save();
+    }
+
+    // ---- launch at startup (HKCU Run key — per-user, no admin needed) ----
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunValueName = "Rodent";
+    private bool _startupSync;
+
+    private void InitStartupToggle()
+    {
+        _startupSync = true;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath);
+            StartupCheck.IsChecked = key?.GetValue(RunValueName) != null;
+        }
+        catch { StartupCheck.IsEnabled = false; }
+        _startupSync = false;
+    }
+
+    private void Startup_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_startupSync) return;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKeyPath);
+            if (StartupCheck.IsChecked == true)
+                key.SetValue(RunValueName, $"\"{Environment.ProcessPath}\" --tray"); // start hidden in the tray
+            else
+                key.DeleteValue(RunValueName, throwOnMissingValue: false);
+        }
+        catch
+        {
+            // Revert the box if the registry write failed.
+            _startupSync = true;
+            StartupCheck.IsChecked = StartupCheck.IsChecked != true;
+            _startupSync = false;
+        }
     }
 
     // ---- window / tray ----
