@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>Rodent</AssemblyName>
+    <ApplicationIcon>Assets\rodent.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Rodent.Core\Rodent.Core.csproj" />
+    <PackageReference Include="SharpVectors.Reloaded" Version="1.8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\*.svg" />
+    <Resource Include="Assets\rodent.ico" />
+  </ItemGroup>
+
+  <!-- WinForms is only used (fully-qualified) for the tray NotifyIcon; drop its
+       global usings so WPF type names (Brush, Button, Application, ...) aren't ambiguous. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+</Project>

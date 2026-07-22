@@ -29,3 +29,7 @@ __pycache__/
 
 Pipfile
 Pipfile.lock
+
+# Rodent (.NET)
+winapp/**/bin/
+winapp/**/obj/

@@ -1,68 +1,93 @@
-# <img src="https://pwr-solaar.github.io/Solaar/img/solaar.svg" width="60px"/> Solaar
+# 🐭 Rodent
 
-Solaar is a Linux manager for many Logitech keyboards, mice, and other devices
-that connect wirelessly to a Unifying, Bolt, Lightspeed or Nano receiver
-as well as many Logitech devices that connect via a USB cable or Bluetooth.
-Solaar is not a device driver and responds only to special messages from devices
-that are otherwise ignored by the Linux input system.
+**Rodent** is a native Windows manager for Logitech gaming mice — a lightweight
+replacement for G HUB, built on the HID++ 2.0 protocol. No cloud, no accounts,
+no background bloat: one small WPF app that talks to the mouse directly.
 
-<a href="https://pwr-solaar.github.io/Solaar/index">More Information</a> -
-<a href="https://pwr-solaar.github.io/Solaar/usage">Usage</a> -
-<a href="https://pwr-solaar.github.io/Solaar/capabilities">Capabilities</a> -
-<a href="https://pwr-solaar.github.io/Solaar/rules">Rules</a> -
-<a href="https://pwr-solaar.github.io/Solaar/installation">Manual Installation</a> -
-<a href="https://pwr-solaar.github.io/Solaar/issues">Known Issues</a>
-
-
-[![codecov](https://codecov.io/gh/pwr-Solaar/Solaar/graph/badge.svg?token=D7YWFEWID6)](https://codecov.io/gh/pwr-Solaar/Solaar)
-[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2+-blue.svg)](../LICENSE.txt)
+> **Status: work in progress / experimental.** Developed and hardware-verified
+> against a single device so far — the **G402 Hyperion Fury**. Other HID++ 2.0
+> mice may partially work (feature discovery is generic), but only the G402 has
+> been tested end-to-end. Use at your own risk: Rodent writes to the mouse's
+> onboard flash memory.
 
 <p align="center">
-<img src="https://pwr-solaar.github.io/Solaar/screenshots/Solaar-main-window-multiple.png" width="54%"/>
-  &#160;
-<img src="https://pwr-solaar.github.io/Solaar/screenshots/Solaar-main-window-receiver.png" width="43%"/>
+<img src="docs/rodent/rodent-main.png" width="80%"/>
 </p>
 
-<p align="center">
-<img src="https://pwr-solaar.github.io/Solaar/screenshots/Solaar-main-window-back-divert.png" width="49%"/>
-  &#160;
-<img src="https://pwr-solaar.github.io/Solaar/screenshots/Solaar-rule-editor.png" width="48%"/>
-</p>
+## What works today
 
-Solaar supports:
-- pairing/unpairing of devices with receivers
-- configuring device settings
-- custom button configuration
-- running rules in response to special messages from devices
+- **Button assignments** (Assignments tab) — remap any button on the device
+  illustration: clicks, key chords, DPI functions, consumer keys, macros.
+  Written to the mouse's **onboard profile**, so they work with no software
+  running, on any PC.
+- **Onboard macros** — G HUB-style macro editor: record keystrokes *and* mouse
+  clicks live (layout-correct on any keyboard layout, incl. Turkish Q), typed
+  text, key combos, delays; No-Repeat and Repeat-While-Held run from the mouse
+  itself.
+- **Macro library** — every macro is saved to a local library and can be
+  reassigned to any button or profile without rebuilding it.
+- **Per-app profiles** (Per-App tab) — software profiles that remap the side
+  buttons per foreground application, G HUB style. Implemented with a
+  signal-key scheme: side buttons are remapped onboard to F13–F17 and a
+  low-level keyboard hook translates them per app. Includes software macros
+  with a **safe Toggle repeat** (press again / Esc / 30 s auto-stop — a loop
+  that can always be stopped), per-app **lighting**, DPI actions, launch-app,
+  media keys, and a G HUB-style command catalog (Task View, emoji panel, etc.).
+- **Copy to onboard** — flash a software profile's bindings into the mouse so
+  they keep working without Rodent.
+- **Sensitivity** (DPI) — G HUB-style DPI slots with default + shift (sniper)
+  slot, report rate, written to the onboard profile and applied live.
+- **Lighting** — Off / Fixed / Breathing on the logo LED, "mouse default" mode
+  with the DPI-stripe indicator (always-lit or blink-on-change), per-profile
+  lighting switching. Includes behavior G HUB exposes but does not document —
+  reverse-engineered NV config for the DPI strip.
+- Device hotplug, tray icon, single-instance, dark UI throughout.
 
-For more information see
-    <a href="https://pwr-solaar.github.io/Solaar/index">the main Solaar documentation page.</a> -
+## What doesn't (yet)
 
+- Only wired HID++ 2.0 devices are handled; no Unifying/Bolt receiver pairing.
+- Onboard **Toggle** macros are impossible — the G402 firmware cannot cancel a
+  running repeat macro (verified; G HUB has the same flaw and its runaway can't
+  be stopped). Rodent's Toggle is software-side by design and always stops.
+- One onboard profile (the G402 only has one profile sector).
+- Not tested on any device other than the G402.
 
-## Installation Packages
+**Note:** quit G HUB / `lghub_agent` before using Rodent — the agent owns the
+device and re-syncs its own configuration over anything Rodent writes.
 
-Up-to-date prebuilt packages are available for some Linux distros
-(e.g., Fedora) in their standard repositories.
-If a recent version of Solaar is not
-available from the standard repositories for your distribution, you can try
-one of these packages:
+## Layout
 
-- Arch solaar package in the [extra repository][arch]
-- Ubuntu/Kubuntu package in [Solaar stable ppa][ppa stable]
-- NixOS Flake package in [Svenum/Solaar-Flake][nix flake]
+```
+winapp/
+  Rodent.App/    WPF GUI (assignments, macros, DPI, lighting, per-app)
+  Rodent.Core/   engine: HID++ transport, onboard profiles, macros, hooks
+  Rodent.Probe/  console diagnostics (sector dumps, feature probes, tests)
+```
 
-Solaar is available from some other repositories
-but may be several versions behind the current version:
+The rest of this repository is the upstream [Solaar] source this fork started
+from, kept as the protocol reference the port was built against.
 
-- a [Debian package][debian], courtesy of Stephen Kitt
-- a Ubuntu package is available from [universe repository][ubuntu universe repository]
-- a [Gentoo package][gentoo], courtesy of Carlos Silva and Tim Harder
-- a [Mageia package][mageia], courtesy of David Geiger
+Build with the .NET 8 SDK: `dotnet build winapp/Rodent.App/Rodent.App.csproj`.
 
-[ppa stable]: https://launchpad.net/~solaar-unifying/+archive/ubuntu/stable
-[arch]: https://www.archlinux.org/packages/extra/any/solaar/
-[gentoo]: https://packages.gentoo.org/packages/app-misc/solaar
-[mageia]: http://mageia.madb.org/package/show/release/cauldron/application/0/name/solaar
-[ubuntu universe repository]: http://packages.ubuntu.com/search?keywords=solaar&searchon=names&suite=all&section=all
-[nix flake]: https://github.com/Svenum/Solaar-Flake
-[debian]: https://packages.debian.org/search?keywords=solaar&searchon=names&suite=all&section=all
+## Credits
+
+Rodent stands on the shoulders of open-source projects that documented the
+HID++ protocol:
+
+- **[Solaar]** (GPLv2) — this repo is a fork of it. The HID++ 2.0 feature
+  protocol, onboard-profile parsing and much of the device logic were ported
+  from `lib/logitech_receiver/` to C#.
+- **[libratbag]** (MIT) — the onboard **macro instruction format** and profile
+  structures (`src/hidpp20.[ch]`), and the **device SVG illustrations** used on
+  the Assignments tab (`data/devices/`).
+- **[HidSharp]** (Apache-2.0) — Windows HID transport.
+- **[SharpVectors]** (BSD-3-Clause) — SVG rendering in WPF.
+
+Everything else — the Windows port itself, the wire-format fixes it needed
+(long-report padding, funcByte convention), the LED/NV reverse engineering,
+the signal-key per-app engine and the macro recorder — was built in this repo.
+
+[Solaar]: https://github.com/pwr-Solaar/Solaar
+[libratbag]: https://github.com/libratbag/libratbag
+[HidSharp]: https://github.com/IntergatedCircuits/HidSharp
+[SharpVectors]: https://github.com/ElinamLLC/SharpVectors

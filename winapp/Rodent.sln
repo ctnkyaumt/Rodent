@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rodent.Core", "Rodent.Core\Rodent.Core.csproj", "{2FC186F8-5DAD-4B96-A90B-CD35626101FC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rodent.App", "Rodent.App\Rodent.App.csproj", "{D53D3504-CBC6-461F-8B76-03C777B21A6E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rodent.Probe", "Rodent.Probe\Rodent.Probe.csproj", "{7E62E750-8BBC-4842-BE46-BD4CC62C4480}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2FC186F8-5DAD-4B96-A90B-CD35626101FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FC186F8-5DAD-4B96-A90B-CD35626101FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FC186F8-5DAD-4B96-A90B-CD35626101FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FC186F8-5DAD-4B96-A90B-CD35626101FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D53D3504-CBC6-461F-8B76-03C777B21A6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D53D3504-CBC6-461F-8B76-03C777B21A6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D53D3504-CBC6-461F-8B76-03C777B21A6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D53D3504-CBC6-461F-8B76-03C777B21A6E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E62E750-8BBC-4842-BE46-BD4CC62C4480}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E62E750-8BBC-4842-BE46-BD4CC62C4480}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E62E750-8BBC-4842-BE46-BD4CC62C4480}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E62E750-8BBC-4842-BE46-BD4CC62C4480}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

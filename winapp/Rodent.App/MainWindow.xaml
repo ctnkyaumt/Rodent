@@ -1,0 +1,315 @@
+<Window x:Class="Rodent.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Rodent.App"
+        xmlns:ctl="clr-namespace:Rodent.App.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Rodent" Height="620" Width="940" MinWidth="860" MinHeight="580"
+        Icon="pack://application:,,,/Assets/rodent.ico"
+        WindowStyle="None" ResizeMode="CanResize"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterScreen">
+
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6"
+                        CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <Style x:Key="CaptionButton" TargetType="Button">
+      <Setter Property="Width" Value="46"/><Setter Property="Height" Value="46"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="B" Background="{TemplateBinding Background}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="Background" Value="{StaticResource Card}"/>
+                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Segmented tab button -->
+    <Style x:Key="TabButton" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="B" Background="Transparent" CornerRadius="8" Padding="20,8" Margin="2,0">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="Background" Value="{StaticResource Card}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="B" Property="Background" Value="{StaticResource Accent}"/>
+                <Setter Property="Foreground" Value="White"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <DataTemplate DataType="{x:Type local:ChoiceSettingViewModel}">
+      <Border Style="{StaticResource CardStyle}">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Label}" Foreground="{StaticResource Text}" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,12,0"/>
+          </StackPanel>
+          <ComboBox Grid.Column="1" VerticalAlignment="Center" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected, Mode=TwoWay}">
+            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type local:ToggleSettingViewModel}">
+      <Border Style="{StaticResource CardStyle}">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Label}" Foreground="{StaticResource Text}" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"/>
+          </StackPanel>
+          <CheckBox Grid.Column="1" IsChecked="{Binding IsOn, Mode=TwoWay}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Border BorderBrush="{StaticResource Border}" BorderThickness="1">
+    <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="46"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+      <!-- Title bar -->
+      <Grid Grid.Row="0" Background="{StaticResource Panel}">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+          <TextBlock Text="Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold"/>
+          <TextBlock x:Name="TitleDevice" Text="" Foreground="{StaticResource Muted}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click"/>
+          <Button x:Name="MaxBtn" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click"/>
+          <Button Style="{StaticResource CaptionButton}" Content="&#xE8BB;" Click="Close_Click"/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Body -->
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{StaticResource Panel}">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" Margin="18,14,10,8">
+              <TextBlock Text="Devices" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+              <Button x:Name="RescanBtn" Content="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                      Padding="5,3" HorizontalAlignment="Right" ToolTip="Rescan devices" Click="Rescan_Click"/>
+            </Grid>
+            <TextBlock DockPanel.Dock="Top" x:Name="DeviceStatus" Text="Scanning…" Foreground="{StaticResource Muted}"
+                       FontSize="12" Margin="18,2,10,8" TextWrapping="Wrap"/>
+            <ListBox x:Name="DeviceList" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}" Margin="8,0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     HorizontalContentAlignment="Stretch"
+                     SelectionChanged="DeviceList_SelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Border Padding="10,8" Margin="0,2">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text}"
+                                 TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Kind}" FontSize="11" Foreground="{StaticResource Muted}"/>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <!-- Main -->
+        <Grid Grid.Column="1">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+          <!-- Tab bar -->
+          <Border Grid.Row="0" Background="{StaticResource Panel}" Padding="0,8">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+              <RadioButton x:Name="TabButtons" Style="{StaticResource TabButton}" Content="Assignments" GroupName="tabs" IsChecked="True" Checked="Tab_Checked"/>
+              <RadioButton x:Name="TabDpi" Style="{StaticResource TabButton}" Content="Sensitivity" GroupName="tabs" Checked="Tab_Checked"/>
+              <RadioButton x:Name="TabLighting" Style="{StaticResource TabButton}" Content="Lighting" GroupName="tabs" Checked="Tab_Checked"/>
+              <RadioButton x:Name="TabPerApp" Style="{StaticResource TabButton}" Content="Per-App" GroupName="tabs" Checked="Tab_Checked"/>
+            </StackPanel>
+          </Border>
+
+          <Grid Grid.Row="1">
+            <!-- Assignments page -->
+            <ctl:MouseButtonsView x:Name="PageButtons"/>
+
+            <!-- Sensitivity page -->
+            <ScrollViewer x:Name="PageDpi" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+              <StackPanel MaxWidth="600" Margin="24,24,24,24" HorizontalAlignment="Center">
+                <TextBlock x:Name="HeaderName" Text="" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap"/>
+                <ItemsControl x:Name="InfoStrip" Margin="0,8,0,16">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{StaticResource Panel}" CornerRadius="6" Padding="10,4" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock Text="{Binding Label}" Foreground="{StaticResource Muted}" FontSize="12"/>
+                          <TextBlock Text="{Binding Value}" Foreground="{StaticResource Text}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"/>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- G HUB-style DPI slots (stored in the onboard profile) -->
+                <Border Style="{StaticResource CardStyle}" x:Name="DpiCard" Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock Text="DPI SLOTS" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="Click a slot to edit it with the slider. The underlined slot is the current DPI; the orange one is DPI Shift (sniper)."
+                               Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                    <StackPanel x:Name="DpiSlotRow" Orientation="Horizontal" Margin="0,2,0,10"/>
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <Slider x:Name="DpiSlider" Minimum="300" Maximum="4000" ValueChanged="DpiSlider_Changed"/>
+                      <TextBlock x:Name="DpiValueLabel" Grid.Column="1" Text="" Foreground="{StaticResource Text}"
+                                 FontSize="14" FontWeight="SemiBold" Margin="14,0,0,0" VerticalAlignment="Center" MinWidth="52"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                      <Button x:Name="DpiMakeCurrent" Content="Set as current" Width="130" Margin="0,0,8,0" Click="DpiMakeCurrent_Click"/>
+                      <Button x:Name="DpiMakeShift" Content="Set as shift (sniper)" Width="150" Click="DpiMakeShift_Click"/>
+                    </StackPanel>
+
+                    <TextBlock Text="REPORT RATE (PER SECOND)" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold" Margin="0,18,0,6"/>
+                    <StackPanel x:Name="RateRow" Orientation="Horizontal"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                      <Button x:Name="DpiApply" Content="Apply to mouse" Width="140" Margin="0,0,8,0"
+                              Style="{StaticResource AccentButton}" Click="DpiApply_Click"/>
+                      <Button x:Name="DpiRestore" Content="Restore defaults" Width="140" Click="DpiRestore_Click"/>
+                      <TextBlock x:Name="DpiStatus" Foreground="{StaticResource Muted}" FontSize="12"
+                                 Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <ItemsControl x:Name="SettingsPanel"/>
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- Lighting page (G HUB-style: effect + shade + speed, stored in the onboard profile) -->
+            <ScrollViewer x:Name="PageLighting" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+              <StackPanel MaxWidth="560" Margin="24" HorizontalAlignment="Center">
+                <TextBlock Text="Lighting" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
+                <Border Style="{StaticResource CardStyle}" x:Name="FxCard">
+                  <StackPanel>
+                    <TextBlock Text="PROFILE" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="FxProfile" Width="260" HorizontalAlignment="Left" Margin="0,6,0,16"
+                              SelectionChanged="FxProfile_Changed"/>
+
+                    <TextBlock Text="EFFECT" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="FxCombo" Width="220" HorizontalAlignment="Left" Margin="0,6,0,0"
+                              SelectionChanged="FxCombo_Changed"/>
+
+                    <StackPanel x:Name="FxColorGroup" Margin="0,16,0,0">
+                      <TextBlock Text="COLOR" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                      <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider x:Name="FxShade" Minimum="0" Maximum="255" Value="255" ValueChanged="FxShade_Changed"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
+                          <Border x:Name="FxSwatch" Width="22" Height="22" CornerRadius="11"
+                                  BorderBrush="{StaticResource Border}" BorderThickness="1" Background="#FF00FFFF"/>
+                          <TextBlock x:Name="FxHex" Text="#00FFFF" Foreground="{StaticResource Text}" FontSize="13"
+                                     FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel x:Name="FxPresets" Orientation="Horizontal" Margin="0,10,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="FxSpeedGroup" Margin="0,16,0,0">
+                      <TextBlock Text="SPEED" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                      <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider x:Name="FxSpeed" Minimum="1000" Maximum="10000" Value="5000"
+                                SmallChange="500" LargeChange="1000" ValueChanged="FxSpeed_Changed"/>
+                        <TextBlock x:Name="FxSpeedLabel" Grid.Column="1" Text="5000 ms" Foreground="{StaticResource Text}"
+                                   FontSize="13" FontWeight="SemiBold" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                      </Grid>
+                    </StackPanel>
+
+                    <CheckBox x:Name="FxStripAlways" Margin="0,18,0,0" Visibility="Collapsed"
+                              Content="Keep DPI stripes always lit (not just on DPI change)"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                      <Button x:Name="FxApply" Content="Apply" Width="110"
+                              Style="{StaticResource AccentButton}" Click="FxApply_Click"/>
+                      <TextBlock x:Name="FxStatus" Foreground="{StaticResource Muted}" FontSize="12"
+                                 Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <TextBlock x:Name="LightingNote" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="2,6,2,0"/>
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- Per-App page -->
+            <ScrollViewer x:Name="PagePerApp" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+              <StackPanel MaxWidth="640" Margin="24" HorizontalAlignment="Center">
+                <TextBlock Text="Per-App Profiles" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold"/>
+                <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,4"
+                           Text="Each profile remaps the side buttons (4–8) for one program; the fallback profile covers everything else. Button assignments are edited on the Assignments tab via the profile dropdown. Enabling rewrites the side buttons to signal keys (F13–F17) — the original mapping is backed up and written back when you disable."/>
+                <TextBlock x:Name="CurrentAppLabel" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,14"/>
+
+                <Border Style="{StaticResource CardStyle}">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                      <TextBlock Text="Per-app profiles" Foreground="{StaticResource Text}" FontSize="15" FontWeight="SemiBold"/>
+                      <TextBlock Text="Remaps side buttons to signal keys and routes them per app. Turn off to restore the original onboard mapping."
+                                 Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,12,0"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" x:Name="ArmedCheck" VerticalAlignment="Center" Margin="12,0,0,0"
+                              Checked="Armed_Changed" Unchecked="Armed_Changed"/>
+                  </Grid>
+                </Border>
+
+                <StackPanel x:Name="ProfilesList"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                  <Button Content="Add profile…" Width="120" Margin="0,0,10,0" Click="AddProfile_Click"/>
+                  <Button Content="Save profiles" Width="120" Click="SaveProfiles_Click"/>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>
