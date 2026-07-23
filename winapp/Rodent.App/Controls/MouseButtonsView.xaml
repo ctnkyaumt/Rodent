@@ -25,6 +25,11 @@
           <Button Content="Turn on" Margin="12,0,0,0" Padding="10,4" Click="EnableMode_Click"/>
         </StackPanel>
       </Border>
+      <Border x:Name="UntestedBanner" Visibility="Collapsed" Background="#33E4A035" BorderBrush="#66E4A035"
+              BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,10,0,0">
+        <TextBlock x:Name="UntestedText" Foreground="{StaticResource Text}" FontSize="12" TextWrapping="Wrap"
+                   Text="Experimental: this model hasn't been verified. Reading works, but onboard flash writes (button remaps, macros, DPI slots, saved lighting) assume the G402 memory layout and could be wrong on this device. Software per-app profiles are safe."/>
+      </Border>
     </StackPanel>
 
     <Grid Grid.Row="1">

@@ -19,6 +19,17 @@ public sealed class LogiDevice : IDisposable
     public string Name { get; private set; } = "Logitech device";
     public string Kind { get; private set; } = "device";
     public string? Firmware { get; private set; }
+
+    /// <summary>Catalog entry for this model (null = unknown model).</summary>
+    public DeviceSpec? Spec { get; private set; }
+
+    /// <summary>Verified vs untested. Only the G402 is Verified so far.</summary>
+    public DeviceSupport Support => Spec?.Support ?? DeviceSupport.Untested;
+
+    /// <summary>Onboard memory layout to use for flash writes (G402's until a
+    /// model supplies its own — untested models fall back to it, hence the UI
+    /// warning). See [[DeviceCatalog]].</summary>
+    private OnboardLayout Layout => Spec?.Onboard ?? OnboardLayout.G402;
     public ushort VendorId { get; }
     public ushort ProductId { get; }
     public string DevicePath { get; }
@@ -127,7 +138,9 @@ public sealed class LogiDevice : IDisposable
         if (ping == null)
             return false;
 
-        Name = ReadDeviceName() ?? Name;
+        Spec = DeviceCatalog.Lookup(VendorId, ProductId);
+        // Prefer the device's own reported name; fall back to the catalog name.
+        Name = ReadDeviceName() ?? Spec?.Name ?? Name;
         Kind = ReadKind() ?? Kind;
         BuildInfo();
         BuildSettings();
@@ -142,14 +155,14 @@ public sealed class LogiDevice : IDisposable
 
     public ProfileEdit.LightingConfig? ReadLighting()
     {
-        lock (_flashLock) { try { return ProfileEdit.ReadLighting(_features); } catch { return null; } }
+        lock (_flashLock) { try { return ProfileEdit.ReadLighting(_features, Layout.LedOffsets); } catch { return null; } }
     }
 
     /// <summary>Apply lighting. persist=false drives the LEDs only (no flash wear),
     /// which is what per-app profile switching uses.</summary>
     public bool WriteLighting(ProfileEdit.LightingConfig cfg, bool persist = true)
     {
-        lock (_flashLock) { try { return ProfileEdit.WriteLighting(_features, cfg, persist); } catch { return false; } }
+        lock (_flashLock) { try { return ProfileEdit.WriteLighting(_features, cfg, persist, Layout.LedOffsets); } catch { return false; } }
     }
 
     public ProfileEdit.DpiConfig? ReadDpiProfile()

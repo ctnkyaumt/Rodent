@@ -13,7 +13,12 @@ namespace Rodent.Core.Hidpp;
 public static class ProfileEdit
 {
     public const int LedOff = 0x00, LedFixed = 0x01, LedBreathing = 0x0A;
-    private static readonly int[] LedOffsets = { 0x0D0, 0x0DB, 0x0E6, 0x0F1 };
+
+    // The LED entry offsets inside the profile sector are device-specific (not
+    // discoverable over HID++). Callers pass their model's offsets; this G402
+    // default keeps the parameter optional for existing call sites.
+    // See Rodent.Core.Devices.OnboardLayout.
+    private static readonly int[] G402LedOffsets = { 0x0D0, 0x0DB, 0x0E6, 0x0F1 };
 
     /// <summary>FirmwareMode hands both LEDs back to the mouse (DPI stripes lit,
     /// logo on factory breathing); Mode/colour/period are then unused. StripAlwaysOn
@@ -55,8 +60,9 @@ public static class ProfileEdit
 
     // ---- lighting -----------------------------------------------------------
 
-    public static LightingConfig? ReadLighting(FeatureTable f)
+    public static LightingConfig? ReadLighting(FeatureTable f, int[]? ledOffsets = null)
     {
+        ledOffsets ??= G402LedOffsets;
         var (data, _, _) = ReadActive(f);
         if (data == null || data.Length < 0x100) return null;
 
@@ -73,7 +79,7 @@ public static class ProfileEdit
         }
         catch { }
 
-        int o = LedOffsets[0];
+        int o = ledOffsets[0];
         int mode = data[o];
         return mode switch
         {
@@ -93,8 +99,9 @@ public static class ProfileEdit
     /// The strip can't breathe (ON/OFF hardware), so it goes dark during effects —
     /// same behavior as G HUB.
     /// </summary>
-    public static bool WriteLighting(FeatureTable f, LightingConfig cfg, bool persist = true)
+    public static bool WriteLighting(FeatureTable f, LightingConfig cfg, bool persist = true, int[]? ledOffsets = null)
     {
+        ledOffsets ??= G402LedOffsets;
         if (cfg.FirmwareMode)
         {
             // The firmware re-reads the stored LED entries the moment it takes the
@@ -108,7 +115,7 @@ public static class ProfileEdit
             // custom effects never persist on per-app switches, so after the first
             // write the entries stay Off and the unchanged-skip guard makes every
             // later switch flash-free.
-            WriteLedEntries(f, new LightingConfig(LedOff, 0, 0, 0, 0));
+            WriteLedEntries(f, new LightingConfig(LedOff, 0, 0, 0, 0), ledOffsets);
             LedControl.Apply(f, 0, 0, 0, firmwareMode: true, cfg.StripAlwaysOn);
             return true;
         }
@@ -120,19 +127,19 @@ public static class ProfileEdit
         int period = cfg.Mode == LedBreathing ? cfg.PeriodMs : 0;  // Fixed = steady
         LedControl.Apply(f, cfg.Mode == LedOff ? 0 : LedControl.ModeBreathing,
                          brightness, period, firmwareMode: false, cfg.StripAlwaysOn);
-        if (persist) WriteLedEntries(f, cfg); // for replug (the copy G HUB stores)
+        if (persist) WriteLedEntries(f, cfg, ledOffsets); // for replug (the copy G HUB stores)
         return true;
     }
 
     /// <summary>Write cfg into every profile LED entry (logo + strip + g-shift).
     /// Never reactivates the profile — that forces onboard mode and blanks the LEDs.</summary>
-    private static bool WriteLedEntries(FeatureTable f, LightingConfig cfg)
+    private static bool WriteLedEntries(FeatureTable f, LightingConfig cfg, int[] ledOffsets)
     {
         var (data, sector, _) = ReadActive(f);
         if (data == null || data.Length < 0x100) return false;
         byte[] before = (byte[])data.Clone();
 
-        foreach (int o in LedOffsets)
+        foreach (int o in ledOffsets)
         {
             Array.Clear(data, o, 11);
             data[o] = (byte)cfg.Mode;

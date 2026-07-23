@@ -25,6 +25,9 @@ public sealed class DeviceViewModel : NotifyBase
     public string Name => Device.Name;
     public string Kind => Device.Kind;
     public string KindLine => Device.Firmware is { Length: > 0 } fw ? $"{Device.Kind}  ·  fw {fw}" : Device.Kind;
+
+    /// <summary>True for models Rodent hasn't been verified on (everything but the G402).</summary>
+    public bool Untested => Device.Support != Rodent.Core.Devices.DeviceSupport.Verified;
     public ushort ProductId => Device.ProductId;
     public ushort VendorId => Device.VendorId;
     public ObservableCollection<SettingViewModel> Settings { get; } = new();

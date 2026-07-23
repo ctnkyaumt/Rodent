@@ -38,6 +38,11 @@ public partial class MouseButtonsView : UserControl
     public void Load(DeviceViewModel vm)
     {
         _vm = vm;
+        UntestedBanner.Visibility = vm.Untested ? Visibility.Visible : Visibility.Collapsed;
+        if (vm.Untested)
+            UntestedText.Text = $"Experimental: {vm.Name} hasn't been verified. Reading works, but onboard " +
+                "flash writes (button remaps, macros, DPI slots, saved lighting) assume the G402 memory layout " +
+                "and could be wrong on this device. Software per-app profiles are safe.";
         ReloadProfiles();
         Render();
         RefreshModeBanner();
@@ -203,6 +208,7 @@ public partial class MouseButtonsView : UserControl
     {
         Root.Children.Clear();
         _labels.Clear();
+        UntestedBanner.Visibility = Visibility.Collapsed;
         NoArt.Text = message;
         NoArt.Visibility = Visibility.Visible;
     }
