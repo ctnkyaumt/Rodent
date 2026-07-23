@@ -22,7 +22,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        TitleApp.Text = $"Rodent {App.VersionTag}";
+        VersionLabel.Text = App.VersionTag;
         DeviceList.ItemsSource = _devices;
         InitStartupToggle();
         PageButtons.ProfileSelected += OnAssignmentsProfileSelected;
@@ -134,7 +134,6 @@ public partial class MainWindow : Window
     private void ClearDevicePages()
     {
         TitleDevice.Text = "";
-        HeaderName.Text = "";
         InfoStrip.ItemsSource = null;
         SettingsPanel.ItemsSource = null;
         PageButtons.ShowEmpty("No devices found");
@@ -153,7 +152,6 @@ public partial class MainWindow : Window
     {
         if (DeviceList.SelectedItem is not DeviceViewModel vm) return;
         TitleDevice.Text = vm.Name;
-        HeaderName.Text = vm.Name;
         InfoStrip.ItemsSource = vm.Info;
         SettingsPanel.ItemsSource = vm.Settings;
         PageButtons.Load(vm);

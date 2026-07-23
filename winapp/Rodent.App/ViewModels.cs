@@ -24,6 +24,7 @@ public sealed class DeviceViewModel : NotifyBase
     public LogiDevice Device { get; }
     public string Name => Device.Name;
     public string Kind => Device.Kind;
+    public string KindLine => Device.Firmware is { Length: > 0 } fw ? $"{Device.Kind}  ·  fw {fw}" : Device.Kind;
     public ushort ProductId => Device.ProductId;
     public ushort VendorId => Device.VendorId;
     public ObservableCollection<SettingViewModel> Settings { get; } = new();

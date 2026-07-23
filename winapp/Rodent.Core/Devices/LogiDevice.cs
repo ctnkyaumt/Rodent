@@ -18,6 +18,7 @@ public sealed class LogiDevice : IDisposable
 
     public string Name { get; private set; } = "Logitech device";
     public string Kind { get; private set; } = "device";
+    public string? Firmware { get; private set; }
     public ushort VendorId { get; }
     public ushort ProductId { get; }
     public string DevicePath { get; }
@@ -256,9 +257,9 @@ public sealed class LogiDevice : IDisposable
 
     private void BuildInfo()
     {
-        Info.Add(new InfoItem("Type", Kind));
-        var fw = ReadFirmware();
-        if (fw != null) Info.Add(new InfoItem("Firmware", fw));
+        // Type is shown in the sidebar; firmware moves there too (see the device
+        // card). Only battery remains as a Sensitivity-tab info chip.
+        Firmware = ReadFirmware();
         var bat = ReadBattery();
         if (bat != null) Info.Add(new InfoItem("Battery", bat));
     }

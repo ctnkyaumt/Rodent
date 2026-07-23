@@ -103,7 +103,7 @@
       <!-- Title bar -->
       <Grid Grid.Row="0" Background="{StaticResource Panel}">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-          <TextBlock x:Name="TitleApp" Text="Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold"/>
+          <TextBlock Text="Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold"/>
           <TextBlock x:Name="TitleDevice" Text="" Foreground="{StaticResource Muted}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -127,7 +127,10 @@
             </Grid>
             <TextBlock DockPanel.Dock="Top" x:Name="DeviceStatus" Text="Scanning…" Foreground="{StaticResource Muted}"
                        FontSize="12" Margin="18,2,10,8" TextWrapping="Wrap"/>
-            <CheckBox DockPanel.Dock="Bottom" x:Name="StartupCheck" Margin="18,8,10,14"
+            <TextBlock DockPanel.Dock="Bottom" x:Name="VersionLabel" Text="" Margin="0,0,0,10"
+                       HorizontalAlignment="Center"
+                       Foreground="{StaticResource Muted}" FontSize="10" Opacity="0.55"/>
+            <CheckBox DockPanel.Dock="Bottom" x:Name="StartupCheck" Margin="18,8,10,8"
                       Content="Launch at startup" Foreground="{StaticResource Muted}" FontSize="12"
                       Checked="Startup_Changed" Unchecked="Startup_Changed"/>
             <ListBox x:Name="DeviceList" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}" Margin="8,0"
@@ -140,7 +143,7 @@
                     <StackPanel>
                       <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text}"
                                  TextWrapping="Wrap"/>
-                      <TextBlock Text="{Binding Kind}" FontSize="11" Foreground="{StaticResource Muted}"/>
+                      <TextBlock Text="{Binding KindLine}" FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -170,8 +173,7 @@
             <!-- Sensitivity page -->
             <ScrollViewer x:Name="PageDpi" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
               <StackPanel MaxWidth="600" Margin="24,24,24,24" HorizontalAlignment="Center">
-                <TextBlock x:Name="HeaderName" Text="" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold" TextWrapping="Wrap"/>
-                <ItemsControl x:Name="InfoStrip" Margin="0,8,0,16">
+                <ItemsControl x:Name="InfoStrip" Margin="0,0,0,16">
                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
