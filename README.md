@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/rodent/logo.png" width="320"/>
+<img src="docs/rodent/logo.png" width="380"/>
 </p>
 
 **Rodent** is a native Windows manager for Logitech gaming mice — a lightweight
@@ -45,14 +45,27 @@ no background bloat: one small WPF app that talks to the mouse directly.
   reverse-engineered NV config for the DPI strip.
 - Device hotplug, tray icon, single-instance, dark UI throughout.
 
+## Device support
+
+- **Logitech (HID++ 2.0)** — connects generically; any wired HID++ mouse is
+  found and its settings read via feature discovery. Only the **G402 Hyperion
+  Fury** is hardware-verified end to end. Other G-series mice are recognised and
+  usually readable, but onboard **flash writes assume the G402 memory layout**,
+  so Rodent shows an experimental warning on those models until they're verified.
+- **Other brands** (SteelSeries, Glorious/SinoWealth, ASUS ROG, Roccat, Mars
+  Gaming) — recognised and listed with a clear "not controllable yet" notice.
+  The SteelSeries and SinoWealth protocols are ported from libratbag but stay
+  **read-only until verified on real hardware**; the rest are stubs. See
+  `winapp/Rodent.Core/Devices/`.
+
 ## What doesn't (yet)
 
-- Only wired HID++ 2.0 devices are handled; no Unifying/Bolt receiver pairing.
+- No Unifying/Bolt receiver pairing (wired/direct devices only).
 - Onboard **Toggle** macros are impossible — the G402 firmware cannot cancel a
   running repeat macro (verified; G HUB has the same flaw and its runaway can't
   be stopped). Rodent's Toggle is software-side by design and always stops.
 - One onboard profile (the G402 only has one profile sector).
-- Not tested on any device other than the G402.
+- Full control is Logitech-only; other brands are identification-only so far.
 
 **Note:** quit G HUB / `lghub_agent` before using Rodent — the agent owns the
 device and re-syncs its own configuration over anything Rodent writes.
