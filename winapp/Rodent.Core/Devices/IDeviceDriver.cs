@@ -1,3 +1,5 @@
+using Rodent.Core.Model;
+
 namespace Rodent.Core.Devices;
 
 /// <summary>Vendors Rodent knows about (whether or not a driver is implemented).</summary>
@@ -28,6 +30,13 @@ public interface IDeviceDriver : IDisposable
     string Name { get; }
     string Kind { get; }
     DeviceSupport Support { get; }
+
+    /// <summary>Generic settings the UI renders (DPI, report rate, …). Empty for
+    /// stub brands until their protocol is ported.</summary>
+    IReadOnlyList<Setting> Settings { get; }
+
+    /// <summary>Read-only info chips (firmware, …).</summary>
+    IReadOnlyList<InfoItem> Info { get; }
 
     /// <summary>Probe the device and load its state. False = not usable (unknown
     /// device, or — for the stub brands — protocol not implemented yet).</summary>

@@ -3,7 +3,8 @@ using Rodent.Core.Hidpp;
 
 namespace Rodent.Core.Devices;
 
-/// <summary>Enumerates Logitech HID++ devices attached to the system.</summary>
+/// <summary>Enumerates supported devices: Logitech over HID++, plus recognised
+/// other-brand mice (listed for future work — see <see cref="DeviceFactory"/>).</summary>
 public static class DeviceManager
 {
     public const int LogitechVendorId = 0x046D;
@@ -11,11 +12,17 @@ public static class DeviceManager
     // HID++ lives on a Logitech vendor-defined collection (usage page 0xFF00).
     private const int HidppUsagePage = 0xFF00;
 
-    public static List<LogiDevice> Discover()
+    public static List<IDeviceDriver> Discover()
     {
-        var result = new List<LogiDevice>();
-        var seen = new HashSet<string>();
+        var result = new List<IDeviceDriver>();
+        DiscoverLogitech(result);
+        DiscoverOtherBrands(result);
+        return result;
+    }
 
+    private static void DiscoverLogitech(List<IDeviceDriver> result)
+    {
+        var seen = new HashSet<string>();
         foreach (var hid in DeviceList.Local.GetHidDevices(LogitechVendorId))
         {
             // Prefer the vendor HID++ collection; long-report collection can carry 20-byte frames.
@@ -37,7 +44,39 @@ public static class DeviceManager
             else
                 dev.Dispose();
         }
-        return result;
+    }
+
+    /// <summary>
+    /// Recognise other-brand mice by vid/pid and list them (no report is sent —
+    /// their drivers are unverified in Rodent, so probing every HID interface is
+    /// deliberately avoided). One entry per physical device.
+    /// </summary>
+    private static void DiscoverOtherBrands(List<IDeviceDriver> result)
+    {
+        var seen = new HashSet<string>();
+        foreach (var hid in DeviceList.Local.GetHidDevices())
+        {
+            ushort vid, pid;
+            string path;
+            try
+            {
+                vid = (ushort)hid.VendorID;
+                pid = (ushort)hid.ProductID;
+                path = hid.DevicePath;
+            }
+            catch { continue; }
+
+            if (!DeviceFactory.IsKnownBrand(vid))
+                continue;
+            if (!seen.Add(PhysicalKey(hid)))
+                continue;
+
+            var dev = DeviceFactory.Create(vid, pid, path);
+            if (dev != null && dev.Initialize())
+                result.Add(dev);
+            else
+                dev?.Dispose();
+        }
     }
 
     private static bool LooksLikeHidpp(HidDevice hid)

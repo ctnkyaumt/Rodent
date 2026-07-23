@@ -173,6 +173,10 @@
             <!-- Sensitivity page -->
             <ScrollViewer x:Name="PageDpi" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
               <StackPanel MaxWidth="600" Margin="24,24,24,24" HorizontalAlignment="Center">
+                <Border x:Name="ForeignNote" Visibility="Collapsed" Background="#33E4A035" BorderBrush="#66E4A035"
+                        BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,14">
+                  <TextBlock x:Name="ForeignNoteText" Foreground="{StaticResource Text}" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
                 <ItemsControl x:Name="InfoStrip" Margin="0,0,0,16">
                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>

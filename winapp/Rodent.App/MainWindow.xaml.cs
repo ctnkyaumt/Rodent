@@ -154,9 +154,30 @@ public partial class MainWindow : Window
         TitleDevice.Text = vm.Name;
         InfoStrip.ItemsSource = vm.Info;
         SettingsPanel.ItemsSource = vm.Settings;
+        ApplyDeviceCapabilities(vm);
         PageButtons.Load(vm);
         LoadLighting(vm);
         LoadDpiPanel(vm);
+    }
+
+    /// <summary>Show only the tabs a device supports. Non-Logitech devices are
+    /// recognised but read-only, so they get the Sensitivity tab (info only) and
+    /// an experimental note; the HID++-only tabs are hidden.</summary>
+    private void ApplyDeviceCapabilities(DeviceViewModel vm)
+    {
+        bool full = vm.FullSupport;
+        TabButtons.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
+        TabLighting.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
+        TabPerApp.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
+        ForeignNote.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        if (!full)
+        {
+            ForeignNoteText.Text = $"{vm.Name} is recognised but not controllable yet — Rodent's driver for this " +
+                "brand isn't implemented/verified. Its identification and firmware are shown above; button " +
+                "assignments, lighting and per-app profiles are Logitech-only for now.";
+            if (TabButtons.IsChecked == true || TabLighting.IsChecked == true || TabPerApp.IsChecked == true)
+                TabDpi.IsChecked = true; // switch off a now-hidden tab
+        }
     }
 
     // ---- Lighting (live over 0x1300; follows the Assignments profile picker) ----
@@ -170,9 +191,11 @@ public partial class MainWindow : Window
     private void LoadLighting(DeviceViewModel vm)
     {
         _fxVm = vm;
+        var logi = vm.Logi;
+        if (logi == null) { FxCard.Visibility = Visibility.Collapsed; return; }
         System.Threading.Tasks.Task.Run(() =>
         {
-            var cfg = vm.Device.ReadLighting();
+            var cfg = logi.ReadLighting();
             Dispatcher.Invoke(() =>
             {
                 if (cfg == null)
@@ -283,10 +306,10 @@ public partial class MainWindow : Window
     /// </summary>
     private void ApplyFxLive()
     {
-        var vm = _fxVm;
-        if (vm == null || FxCard.Visibility != Visibility.Visible) return;
+        var logi = _fxVm?.Logi;
+        if (logi == null || FxCard.Visibility != Visibility.Visible) return;
         var cfg = CurrentFxConfig();
-        System.Threading.Tasks.Task.Run(() => vm.Device.WriteLighting(cfg, persist: false));
+        System.Threading.Tasks.Task.Run(() => logi.WriteLighting(cfg, persist: false));
     }
 
     private void BuildFxPresets()
@@ -346,8 +369,8 @@ public partial class MainWindow : Window
 
     private void FxApply_Click(object sender, RoutedEventArgs e)
     {
-        var vm = _fxVm;
-        if (vm == null) return;
+        var logi = _fxVm?.Logi;
+        if (logi == null) return;
         var cfg = CurrentFxConfig();
         var profile = SelectedFxProfile();
 
@@ -370,7 +393,7 @@ public partial class MainWindow : Window
         FxStatus.Text = "Applying…";
         System.Threading.Tasks.Task.Run(() =>
         {
-            bool ok = vm.Device.WriteLighting(cfg, persist);
+            bool ok = logi.WriteLighting(cfg, persist);
             Dispatcher.Invoke(() =>
             {
                 FxApply.IsEnabled = true;
@@ -406,10 +429,12 @@ public partial class MainWindow : Window
     private void LoadDpiPanel(DeviceViewModel vm)
     {
         _dpiVm = vm;
+        var logi = vm.Logi;
+        if (logi == null) { DpiCard.Visibility = Visibility.Collapsed; return; }
         System.Threading.Tasks.Task.Run(() =>
         {
-            var cfg = vm.Device.ReadDpiProfile();
-            var choices = vm.Device.DpiChoices();
+            var cfg = logi.ReadDpiProfile();
+            var choices = logi.DpiChoices();
             Dispatcher.Invoke(() =>
             {
                 _dpi = cfg;
@@ -529,14 +554,14 @@ public partial class MainWindow : Window
 
     private void DpiApply_Click(object sender, RoutedEventArgs e)
     {
-        var vm = _dpiVm;
+        var logi = _dpiVm?.Logi;
         var cfg = _dpi;
-        if (vm == null || cfg == null) return;
+        if (logi == null || cfg == null) return;
         DpiApply.IsEnabled = false;
         DpiStatus.Text = "Writing…";
         System.Threading.Tasks.Task.Run(() =>
         {
-            bool ok = vm.Device.WriteDpiProfile(cfg);
+            bool ok = logi.WriteDpiProfile(cfg);
             Dispatcher.Invoke(() =>
             {
                 DpiApply.IsEnabled = true;
@@ -569,9 +594,10 @@ public partial class MainWindow : Window
     // ---- Per-App profiles ----
     private bool _armSync; // true while code (not the user) sets ArmedCheck
 
-    /// <summary>Device currently selected in the sidebar (arming target).</summary>
+    /// <summary>Logitech device currently selected in the sidebar (arming target);
+    /// null when a non-Logitech device is selected (per-app is Logitech-only).</summary>
     public Rodent.Core.Devices.LogiDevice? SelectedDevice =>
-        (DeviceList.SelectedItem as DeviceViewModel)?.Device;
+        (DeviceList.SelectedItem as DeviceViewModel)?.Logi;
 
     private void SetupPerApp()
     {

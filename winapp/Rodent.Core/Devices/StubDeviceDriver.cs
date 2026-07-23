@@ -1,3 +1,5 @@
+using Rodent.Core.Model;
+
 namespace Rodent.Core.Devices;
 
 /// <summary>
@@ -32,8 +34,13 @@ public abstract class StubDeviceDriver : IDeviceDriver
     // Not verified because it isn't even connected yet.
     public DeviceSupport Support => DeviceSupport.Untested;
 
-    /// <summary>Always false: the driver is a stub. Override when a real protocol lands.</summary>
-    public virtual bool Initialize() => false;
+    public IReadOnlyList<Setting> Settings => Array.Empty<Setting>();
+    public IReadOnlyList<InfoItem> Info => Array.Empty<InfoItem>();
+
+    /// <summary>Recognised (so it lists), but nothing is controllable yet — the
+    /// UI shows an "experimental" note and no settings. Override when a real
+    /// protocol lands.</summary>
+    public virtual bool Initialize() => true;
 
     public virtual void Dispose() { }
 }

@@ -37,6 +37,9 @@ public sealed class LogiDevice : IDeviceDriver
     public string DevicePath { get; }
     public List<Setting> Settings { get; } = new();
     public List<InfoItem> Info { get; } = new();
+
+    IReadOnlyList<Setting> IDeviceDriver.Settings => Settings;
+    IReadOnlyList<InfoItem> IDeviceDriver.Info => Info;
     public List<OnboardProfiles.ButtonAction> Buttons { get; } = new();
     public List<LedControl.Zone> Leds { get; } = new();
 

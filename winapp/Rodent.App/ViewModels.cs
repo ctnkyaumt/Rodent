@@ -21,19 +21,33 @@ public abstract class NotifyBase : INotifyPropertyChanged
 
 public sealed class DeviceViewModel : NotifyBase
 {
-    public LogiDevice Device { get; }
+    public IDeviceDriver Device { get; }
+
+    /// <summary>The Logitech driver when this is a Logitech device; null otherwise.
+    /// The Assignments/Lighting/DPI-slots/Per-App tabs are Logitech-only and gate
+    /// on this.</summary>
+    public LogiDevice? Logi => Device as LogiDevice;
+
     public string Name => Device.Name;
     public string Kind => Device.Kind;
-    public string KindLine => Device.Firmware is { Length: > 0 } fw ? $"{Device.Kind}  ·  fw {fw}" : Device.Kind;
+
+    private string? Firmware =>
+        Logi?.Firmware ?? Device.Info.FirstOrDefault(i => i.Label == "Firmware")?.Value;
+    public string KindLine => Firmware is { Length: > 0 } fw ? $"{Device.Kind}  ·  fw {fw}" : Device.Kind;
 
     /// <summary>True for models Rodent hasn't been verified on (everything but the G402).</summary>
     public bool Untested => Device.Support != Rodent.Core.Devices.DeviceSupport.Verified;
+
+    /// <summary>Logitech HID++ device with the full feature set (assignments,
+    /// lighting, onboard profiles). Other brands are recognised but read-only.</summary>
+    public bool FullSupport => Logi != null;
+
     public ushort ProductId => Device.ProductId;
     public ushort VendorId => Device.VendorId;
     public ObservableCollection<SettingViewModel> Settings { get; } = new();
     public IReadOnlyList<InfoItem> Info => Device.Info;
 
-    public DeviceViewModel(LogiDevice device)
+    public DeviceViewModel(IDeviceDriver device)
     {
         Device = device;
         foreach (var s in device.Settings)
