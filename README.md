@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/rodent/logo.png" width="570"/>
+<img src="docs/rodent/logo.png" width="950"/>
 </p>
 
 **Rodent** is a native Windows manager for Logitech gaming mice — a lightweight
