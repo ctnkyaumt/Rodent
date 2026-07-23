@@ -1,0 +1,47 @@
+name: Release
+
+# Push a tag like v0.9 (or v0.9.1) to build a single-file exe and publish it
+# as a GitHub Release — the asset is the exe itself, no archive.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Version from tag
+        id: v
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          if ($ver.Split(".").Count -eq 2) { $ver = "$ver.0" }  # v0.9 -> 0.9.0
+          "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Publish single-file exe
+        run: >
+          dotnet publish winapp/Rodent.App/Rodent.App.csproj
+          -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ steps.v.outputs.version }}
+          -o publish
+
+      - name: Name the asset
+        shell: pwsh
+        run: Rename-Item publish/Rodent.exe "Rodent-${{ github.ref_name }}.exe"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: publish/Rodent-${{ github.ref_name }}.exe
+          generate_release_notes: true

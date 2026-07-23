@@ -66,19 +66,19 @@ winapp/
   Rodent.Probe/  console diagnostics (sector dumps, feature probes, tests)
 ```
 
-The rest of this repository is the upstream [Solaar] source this fork started
-from, kept as the protocol reference the port was built against.
+Build with the .NET 8 SDK: `dotnet build winapp/Rodent.App/Rodent.App.csproj`,
+or grab the single-file exe from the [Releases] page.
 
-Build with the .NET 8 SDK: `dotnet build winapp/Rodent.App/Rodent.App.csproj`.
+[Releases]: https://github.com/ctnkyaumt/Rodent/releases
 
 ## Credits
 
 Rodent stands on the shoulders of open-source projects that documented the
 HID++ protocol:
 
-- **[Solaar]** (GPLv2) — this repo is a fork of it. The HID++ 2.0 feature
-  protocol, onboard-profile parsing and much of the device logic were ported
-  from `lib/logitech_receiver/` to C#.
+- **[Solaar]** (GPLv2) — this repo started as a fork of it. The HID++ 2.0
+  feature protocol, onboard-profile parsing and much of the device logic were
+  ported from its `lib/logitech_receiver/` to C#.
 - **[libratbag]** (MIT) — the onboard **macro instruction format** and profile
   structures (`src/hidpp20.[ch]`), and the **device SVG illustrations** used on
   the Assignments tab (`data/devices/`).

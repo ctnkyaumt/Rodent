@@ -6,6 +6,16 @@ namespace Rodent.App;
 
 public partial class App : Application
 {
+    /// <summary>"v0.9" — from the assembly version (CI stamps releases via -p:Version).</summary>
+    public static string VersionTag
+    {
+        get
+        {
+            var v = typeof(App).Assembly.GetName().Version;
+            return v == null ? "" : v.Build > 0 ? $"v{v.Major}.{v.Minor}.{v.Build}" : $"v{v.Major}.{v.Minor}";
+        }
+    }
+
     public ProfilesConfig Profiles { get; private set; } = new();
     public AutomationService Automation { get; private set; } = null!;
     public bool Quitting { get; private set; }
@@ -71,7 +81,7 @@ public partial class App : Application
         {
             Icon = LoadTrayIcon(),
             Visible = true,
-            Text = "Rodent",
+            Text = $"Rodent {VersionTag}",
         };
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Open Rodent", null, (_, _) => ShowMain());

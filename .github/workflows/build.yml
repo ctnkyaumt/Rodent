@@ -1,0 +1,35 @@
+name: Build
+
+# Every push builds a single-file Rodent.exe and uploads it as an artifact.
+# (GitHub wraps every artifact download in a zip on its side — the artifact
+# itself contains only the bare exe.)
+on:
+  push:
+    branches: [master]
+    paths: ['winapp/**', '.github/workflows/build.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish single-file exe
+        run: >
+          dotnet publish winapp/Rodent.App/Rodent.App.csproj
+          -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rodent.exe
+          path: publish/Rodent.exe
+          if-no-files-found: error

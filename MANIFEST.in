@@ -1,3 +1,0 @@
-include COPYRIGHT LICENSE.txt README.md CHANGELOG.md lib/solaar/version lib/solaar/commit
-recursive-include rules.d *
-recursive-include share/locale *

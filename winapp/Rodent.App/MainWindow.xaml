@@ -103,7 +103,7 @@
       <!-- Title bar -->
       <Grid Grid.Row="0" Background="{StaticResource Panel}">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-          <TextBlock Text="Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold"/>
+          <TextBlock x:Name="TitleApp" Text="Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold"/>
           <TextBlock x:Name="TitleDevice" Text="" Foreground="{StaticResource Muted}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

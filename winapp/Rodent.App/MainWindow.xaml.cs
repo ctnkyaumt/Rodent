@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TitleApp.Text = $"Rodent {App.VersionTag}";
         DeviceList.ItemsSource = _devices;
         InitStartupToggle();
         PageButtons.ProfileSelected += OnAssignmentsProfileSelected;
