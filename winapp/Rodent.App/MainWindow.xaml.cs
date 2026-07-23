@@ -76,9 +76,23 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    private WindowState _lastState = WindowState.Normal;
+
     protected override void OnStateChanged(EventArgs e)
     {
         base.OnStateChanged(e);
+
+        // Restoring from the taskbar sometimes leaves the window active but
+        // buried in the z-order (it "doesn't appear" until clicked again).
+        // A topmost pulse forces it to the front.
+        if (_lastState == WindowState.Minimized && WindowState != WindowState.Minimized)
+        {
+            Topmost = true;
+            Topmost = false;
+            Activate();
+        }
+        _lastState = WindowState;
+
         if (MaxBtn != null)
             MaxBtn.Content = WindowState == WindowState.Maximized ? "" : "";
     }

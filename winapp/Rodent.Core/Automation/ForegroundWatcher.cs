@@ -6,7 +6,10 @@ namespace Rodent.Core.Automation;
 /// <summary>
 /// Reports the process name of the foreground window and raises an event when it
 /// changes. This is the "which app is active" signal that drives per-app behavior
-/// (the software side of what G HUB does). Uses a WinEvent hook — no polling.
+/// (the software side of what G HUB does). A WinEvent hook gives the instant
+/// signal, backed by a slow poll: EVENT_SYSTEM_FOREGROUND is unreliable for
+/// restore-from-taskbar and show-desktop transitions (fires with the taskbar's
+/// hwnd, or not at all), which left the lighting stuck on the previous app.
 /// </summary>
 public sealed class ForegroundWatcher : IDisposable
 {
@@ -14,7 +17,10 @@ public sealed class ForegroundWatcher : IDisposable
 
     private readonly WinEventProc _proc;      // kept alive so the delegate isn't GC'd
     private IntPtr _hook;
+    private Timer? _poll;
+    private readonly object _sync = new();
     private string _current = "";
+    private string _pollSample = "";
 
     public string CurrentApp => _current;
 
@@ -28,22 +34,45 @@ public sealed class ForegroundWatcher : IDisposable
         if (_hook != IntPtr.Zero) return;
         _hook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
             IntPtr.Zero, _proc, 0, 0, WINEVENT_OUTOFCONTEXT);
+        _poll = new Timer(_ => { try { PollTick(); } catch { } }, null, 600, 600);
         Update(GetForegroundWindow());
     }
 
     public void Stop()
     {
         if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; }
+        _poll?.Dispose();
+        _poll = null;
     }
 
     private void OnWinEvent(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
         => Update(hwnd);
 
+    /// <summary>
+    /// Safety poll for transitions the WinEvent misses. Acts only when two
+    /// consecutive samples agree: a single sample mid taskbar-click often reads
+    /// the transient foreground (the taskbar itself) and caused churn while
+    /// Windows was still handing focus over.
+    /// </summary>
+    private void PollTick()
+    {
+        string app = ProcessNameOf(GetForegroundWindow());
+        bool stable = app.Length > 0 && app == _pollSample;
+        _pollSample = app;
+        if (stable) Update(GetForegroundWindow());
+    }
+
     private void Update(IntPtr hwnd)
     {
         string app = ProcessNameOf(hwnd);
-        if (app.Length == 0 || app == _current) return;
-        _current = app;
+        // Compare-and-set under a lock (hook runs on the UI thread, the poll on a
+        // pool thread); the event fires OUTSIDE it — a handler hopping threads
+        // while the other path waits on the lock would deadlock.
+        lock (_sync)
+        {
+            if (app.Length == 0 || app == _current) return;
+            _current = app;
+        }
         AppChanged?.Invoke(app);
     }
 
