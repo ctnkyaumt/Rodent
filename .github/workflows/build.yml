@@ -1,12 +1,10 @@
 name: Build
 
-# Every push builds a single-file Rodent.exe and uploads it as an artifact.
-# (GitHub wraps every artifact download in a zip on its side — the artifact
-# itself contains only the bare exe.)
+# Manual only — run from the Actions tab when you want a single-file
+# Rodent.exe artifact. (GitHub wraps every artifact download in a zip on its
+# side; the artifact itself contains only the bare exe.) Releases are cut by
+# the separate Release workflow on v* tags.
 on:
-  push:
-    branches: [master]
-    paths: ['winapp/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
 jobs:

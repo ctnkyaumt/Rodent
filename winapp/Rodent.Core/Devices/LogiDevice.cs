@@ -8,8 +8,10 @@ namespace Rodent.Core.Devices;
 /// exposes them as generic Settings. Feature logic is a direct port of the
 /// corresponding Solaar templates (lib/logitech_receiver/settings_templates.py).
 /// </summary>
-public sealed class LogiDevice : IDisposable
+public sealed class LogiDevice : IDeviceDriver
 {
+    public Brand Brand => Brand.Logitech;
+
     private readonly HidppTransport _transport;
     private readonly FeatureTable _features;
 
