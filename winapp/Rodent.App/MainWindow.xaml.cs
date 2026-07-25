@@ -30,7 +30,14 @@ public partial class MainWindow : Window
         PageButtons.ProfileSelected += OnAssignmentsProfileSelected;
         // Not on Loaded: when started with --tray the window stays hidden (Loaded
         // never fires) but devices and per-app profiles must still come up.
-        Dispatcher.InvokeAsync(async () => { SetupPerApp(); await LoadDevicesAsync(); });
+        Dispatcher.InvokeAsync(async () =>
+        {
+            SetupPerApp();
+            await LoadDevicesAsync();
+            // Started with --tray: nothing is on screen, so give the startup
+            // allocations back instead of holding them for a hidden window.
+            if (!IsVisible) MemoryTrim.Trim("startup in tray");
+        });
 
         // Hotplug: HidSharp raises Changed on any HID arrival/removal; debounce the
         // burst of events one physical plug generates, then rescan.
@@ -94,6 +101,7 @@ public partial class MainWindow : Window
             Topmost = false;
             Activate();
         }
+        if (WindowState == WindowState.Minimized) MemoryTrim.Trim("minimized");
         _lastState = WindowState;
 
         if (MaxBtn != null)
@@ -862,7 +870,12 @@ public partial class MainWindow : Window
     // ---- window / tray ----
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (!AppInstance.Quitting) { e.Cancel = true; Hide(); } // minimize to tray
+        if (!AppInstance.Quitting)
+        {
+            e.Cancel = true;
+            Hide();                       // minimize to tray
+            MemoryTrim.Trim("hidden to tray");
+        }
         base.OnClosing(e);
     }
 

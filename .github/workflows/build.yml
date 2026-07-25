@@ -1,4 +1,4 @@
-name: Build
+﻿name: Build
 
 # Manual only — run from the Actions tab when you want a single-file
 # Rodent.exe artifact. (GitHub wraps every artifact download in a zip on its
@@ -23,7 +23,6 @@ jobs:
           -c Release -r win-x64 --self-contained
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
           -o publish
 
       - uses: actions/upload-artifact@v4
