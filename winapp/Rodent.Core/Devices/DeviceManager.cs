@@ -1,4 +1,5 @@
 using HidSharp;
+using Rodent.Core.Diagnostics;
 using Rodent.Core.Hidpp;
 
 namespace Rodent.Core.Devices;
@@ -15,8 +16,10 @@ public static class DeviceManager
     public static List<IDeviceDriver> Discover()
     {
         var result = new List<IDeviceDriver>();
+        Log.Debug("scanning HID devices");
         DiscoverLogitech(result);
         DiscoverOtherBrands(result);
+        Log.Debug($"scan complete: {result.Count} usable device(s)");
         return result;
     }
 
@@ -36,13 +39,34 @@ public static class DeviceManager
 
             var transport = HidppTransport.TryOpen(hid);
             if (transport == null)
+            {
+                Log.Debug($"HID++ open failed: {hid.VendorID:X4}:{hid.ProductID:X4}");
                 continue;
+            }
 
-            var dev = new LogiDevice(transport, (ushort)hid.VendorID, (ushort)hid.ProductID, hid.DevicePath);
-            if (dev.Initialize())
-                result.Add(dev);
-            else
-                dev.Dispose();
+            LogiDevice? dev = null;
+            try
+            {
+                dev = new LogiDevice(transport, (ushort)hid.VendorID, (ushort)hid.ProductID, hid.DevicePath);
+                if (dev.Initialize())
+                {
+                    Log.Info($"found {dev.Name} ({dev.VendorId:X4}:{dev.ProductId:X4})");
+                    result.Add(dev);
+                }
+                else
+                {
+                    Log.Debug($"init returned false for {hid.VendorID:X4}:{hid.ProductID:X4}");
+                    dev.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Unplugged mid-probe, or a collection that answers HID++ badly:
+                // skip this one, keep scanning the rest.
+                Log.Exception(ex, $"probing {hid.VendorID:X4}:{hid.ProductID:X4}");
+                dev?.Dispose();
+                transport.Dispose();
+            }
         }
     }
 
@@ -71,11 +95,25 @@ public static class DeviceManager
             if (!seen.Add(PhysicalKey(hid)))
                 continue;
 
-            var dev = DeviceFactory.Create(vid, pid, path);
-            if (dev != null && dev.Initialize())
-                result.Add(dev);
-            else
+            IDeviceDriver? dev = null;
+            try
+            {
+                dev = DeviceFactory.Create(vid, pid, path);
+                if (dev != null && dev.Initialize())
+                {
+                    Log.Info($"found {dev.Name} ({vid:X4}:{pid:X4})");
+                    result.Add(dev);
+                }
+                else
+                {
+                    dev?.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, $"probing {vid:X4}:{pid:X4}");
                 dev?.Dispose();
+            }
         }
     }
 

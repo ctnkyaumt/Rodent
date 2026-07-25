@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Rodent.Core.Automation;
 using Rodent.Core.Devices;
+using Rodent.Core.Diagnostics;
 
 namespace Rodent.App;
 
@@ -108,8 +109,21 @@ public partial class MainWindow : Window
 
         string? keep = (DeviceList.SelectedItem as DeviceViewModel)?.Device.DevicePath;
         var old = _devices.ToList();
-        var found = await System.Threading.Tasks.Task.Run(() =>
-            DeviceManager.Discover().Select(d => new DeviceViewModel(d)).ToList());
+
+        // A device yanked mid-scan throws from the HID read; that must not take
+        // the app down — log it and show an empty list until the next rescan.
+        List<DeviceViewModel> found;
+        try
+        {
+            found = await System.Threading.Tasks.Task.Run(() =>
+                DeviceManager.Discover().Select(d => new DeviceViewModel(d)).ToList());
+        }
+        catch (Exception ex)
+        {
+            Log.Exception(ex, "device scan");
+            found = new List<DeviceViewModel>();
+        }
+        Log.Info($"scan found {found.Count} device(s)");
 
         _devices.Clear();
         foreach (var vm in found) _devices.Add(vm);

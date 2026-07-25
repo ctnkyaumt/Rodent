@@ -12,7 +12,16 @@
     <ApplicationIcon>Assets\rodent.ico</ApplicationIcon>
     <!-- Overridden by CI with -p:Version=<tag> on releases. -->
     <Version>0.9.0</Version>
+    <!-- Own Main (Program.cs): CLI commands answer and exit before WPF starts. -->
+    <StartupObject>Rodent.App.Program</StartupObject>
   </PropertyGroup>
+
+  <!-- App.xaml as a Page rather than ApplicationDefinition, so the SDK does not
+       generate a competing entry point. -->
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Rodent.Core\Rodent.Core.csproj" />

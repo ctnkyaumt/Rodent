@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Windows;
+using Rodent.App.Cli;
 using Rodent.Core.Automation;
+using Rodent.Core.Diagnostics;
 
 namespace Rodent.App;
 
@@ -16,6 +18,7 @@ public partial class App : Application
         }
     }
 
+    public CliOptions Options { get; }
     public ProfilesConfig Profiles { get; private set; } = new();
     public AutomationService Automation { get; private set; } = null!;
     public bool Quitting { get; private set; }
@@ -33,6 +36,14 @@ public partial class App : Application
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessage(string message);
 
+    public App() : this(new CliOptions()) { }
+
+    public App(CliOptions options)
+    {
+        Options = options;
+        InstallCrashHandlers();
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -43,6 +54,7 @@ public partial class App : Application
         _mutex = new Mutex(true, @"Local\RodentSingleInstance", out _ownsMutex);
         if (!_ownsMutex)
         {
+            Log.Info("another instance is running — asking it to come forward");
             PostMessage(HWND_BROADCAST, ShowWindowMessage, IntPtr.Zero, IntPtr.Zero);
             Quitting = true;
             Shutdown();
@@ -50,6 +62,7 @@ public partial class App : Application
         }
 
         Profiles = ProfilesConfig.Load();
+        Log.Info($"profiles loaded: {Profiles.Profiles.Count} per-app rule(s)");
         Automation = new AutomationService(Profiles);
         Automation.DeviceProvider = () =>
             Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedDpiDevice);
@@ -60,12 +73,46 @@ public partial class App : Application
         // in the tray. Device/profile init runs either way — only Show() differs.
         var win = new MainWindow();
         MainWindow = win;
-        if (e.Args.Contains("--tray"))
+        if (Options.Tray)
             // The window needs an HWND even while hidden, or the second-instance
             // "surface yourself" broadcast would have no listener.
             new System.Windows.Interop.WindowInteropHelper(win).EnsureHandle();
         else
             win.Show();
+    }
+
+    // ---- crash handling ----
+
+    private void InstallCrashHandlers()
+    {
+        // A background HID read that fails while the mouse is being unplugged used
+        // to reach the dispatcher and kill the process; now it is logged and shown.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Log.Exception(args.Exception, "unhandled (UI thread)");
+            args.Handled = true;
+            if (!Quitting) ShowCrashNotice(args.Exception);
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex) Log.Exception(ex, "unhandled (fatal)");
+            else Log.Error("unhandled non-exception fault: " + args.ExceptionObject);
+            Log.Close();
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Log.Exception(args.Exception, "unobserved task");
+            args.SetObserved();
+        };
+    }
+
+    private void ShowCrashNotice(Exception ex)
+    {
+        string where = Log.FilePath is { } p ? $"\n\nDetails were written to:\n{p}" : "";
+        MessageBox.Show($"Something went wrong:\n\n{ex.Message}{where}", "Rodent",
+            MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     /// <summary>Persist edited profiles and hand them to the running engine.</summary>

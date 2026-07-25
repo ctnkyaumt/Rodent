@@ -1,4 +1,5 @@
 using HidSharp;
+using Rodent.Core.Diagnostics;
 
 namespace Rodent.Core.Hidpp;
 
@@ -30,6 +31,7 @@ public sealed class HidppTransport : IDisposable
     private readonly int _inLen;
     private readonly object _lock = new();
     private int _swId = 1;
+    private bool _gone;
 
     public static bool Debug = false;
     public byte DeviceIndex { get; }
@@ -70,6 +72,10 @@ public sealed class HidppTransport : IDisposable
     {
         lock (_lock)
         {
+            // Once the device has vanished every call would burn the full 2 s
+            // timeout; fail fast instead so a rescan can clean up.
+            if (_gone) return null;
+
             byte swId = NextSwId();
             byte funcByte = (byte)((funcId & 0xF0) | swId);
 
@@ -82,7 +88,17 @@ public sealed class HidppTransport : IDisposable
                 buf[4 + i] = parameters[i];
 
             DrainInput();
-            _stream.Write(buf);
+            try
+            {
+                _stream.Write(buf);
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+            {
+                Log.Debug("HID write failed, device likely gone: " + ex.Message);
+                _gone = true;
+                return null;
+            }
+            Log.Frame($">> feat={featureIndex:X2} func={funcByte:X2}", buf.AsSpan(0, Math.Min(8, buf.Length)));
             if (Debug)
                 Console.WriteLine($"  >> W feat={featureIndex:X2} func={funcByte:X2} : {string.Join(" ", buf.Take(8).Select(x => x.ToString("X2")))}");
 
@@ -90,6 +106,9 @@ public sealed class HidppTransport : IDisposable
             while (DateTime.UtcNow < deadline)
             {
                 byte[]? reply = ReadReport();
+                if (_gone) return null;
+                if (reply != null)
+                    Log.Frame("<<", reply.AsSpan(0, Math.Min(8, reply.Length)));
                 if (Debug && reply != null)
                     Console.WriteLine($"  << R {string.Join(" ", reply.Take(8).Select(x => x.ToString("X2")))}");
                 if (reply == null || reply.Length < 4)
@@ -125,12 +144,25 @@ public sealed class HidppTransport : IDisposable
         {
             return null;
         }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+            // The mouse was unplugged (Win32 1167 "device not connected") or the
+            // handle is gone. Treat it as no reply — the caller's request times
+            // out and the device drops off the next scan.
+            Log.Debug("HID read failed, device likely gone: " + ex.Message);
+            _gone = true;
+            return null;
+        }
     }
+
+    /// <summary>True once a read failed because the device went away.</summary>
+    public bool IsGone => _gone;
 
     private void DrainInput()
     {
-        int saved = _stream.ReadTimeout;
-        _stream.ReadTimeout = 0;
+        int saved;
+        try { saved = _stream.ReadTimeout; _stream.ReadTimeout = 0; }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException) { _gone = true; return; }
         try
         {
             var tmp = new byte[_inLen];
@@ -141,10 +173,18 @@ public sealed class HidppTransport : IDisposable
                     if (_stream.Read(tmp, 0, tmp.Length) <= 0) break;
                 }
                 catch (TimeoutException) { break; }
+                catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+                {
+                    _gone = true;
+                    break;
+                }
             }
         }
-        finally { _stream.ReadTimeout = saved; }
+        finally { try { _stream.ReadTimeout = saved; } catch { } }
     }
 
-    public void Dispose() => _stream.Dispose();
+    public void Dispose()
+    {
+        try { _stream.Dispose(); } catch { }
+    }
 }

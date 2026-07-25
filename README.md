@@ -16,6 +16,33 @@ no background bloat: one small WPF app that talks to the mouse directly.
 <img src="docs/rodent/rodent-main.png" width="80%"/>
 </p>
 
+## Command line
+
+`Rodent.exe --help` prints the full list. The common ones:
+
+```
+Rodent.exe --list                 # print detected devices and their settings
+Rodent.exe --tray                 # start hidden in the notification area
+Rodent.exe --verbose              # debug logging, mirrored to the terminal
+```
+
+Output goes to the terminal that launched it (Rodent is a GUI app, so it
+attaches to the parent console rather than opening its own window).
+
+## Logs
+
+Rodent logs to `%LOCALAPPDATA%\Rodent\logs\rodent.log` at `info` level by
+default, rolling at 2 MB with five generations kept. Crashes, HID failures and
+device scans land there.
+
+```
+Rodent.exe --log debug            # off | error | warn | info | debug | trace
+Rodent.exe --log trace            # adds a hex dump of every HID++ frame
+Rodent.exe --log-file D:\r.log    # write somewhere else
+Rodent.exe --no-log               # disable
+Rodent.exe --log-path             # print the current level and file
+```
+
 ## What works today
 
 - **Button assignments** (Assignments tab) — remap any button on the device
