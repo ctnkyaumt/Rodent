@@ -334,6 +334,10 @@ public partial class MainWindow : Window
         var logi = _fxVm?.LightDev;
         if (logi == null || FxCard.Visibility != Visibility.Visible) return;
         var cfg = CurrentFxConfig();
+        // The mouse is now showing this: record it, or the next app switch sees an
+        // unchanged config and skips its write, leaving the preview stuck on.
+        _fxLastApplied = cfg;
+        Log.Debug($"lighting: preview -> mode {cfg.Mode} shade {cfg.G} (profile picker)");
         System.Threading.Tasks.Task.Run(() => logi.WriteLighting(cfg, persist: false));
     }
 
@@ -413,6 +417,9 @@ public partial class MainWindow : Window
         // Persist to the mouse only for the onboard profile; a per-app profile's
         // lighting is driven live whenever its app comes forward (no flash wear).
         bool persist = profile == null;
+        _fxLastApplied = cfg;   // keep the app-switch tracker in step with the device
+        Log.Info($"lighting: apply -> mode {cfg.Mode} shade {cfg.G} " +
+                 $"({profile?.Name ?? "onboard"}, persist={persist})");
         if (profile == null) _fxDeviceCfg = cfg; // keep the Onboard fallback current
         FxApply.IsEnabled = false;
         FxStatus.Text = "Applying…";
@@ -434,9 +441,16 @@ public partial class MainWindow : Window
     /// lighting rule restores the mouse's own (onboard) lighting — otherwise the
     /// last app's effect stayed on for everything else, which reads as "per-app
     /// lighting is broken".
+    ///
+    /// Rodent's own window is the exception: while you are looking at the Lighting
+    /// tab, the mouse shows the profile you have selected there, so picking a
+    /// profile previews it and coming back from another app shows it again.
     /// </summary>
     private string _fxLastApp = "";
     private Rodent.Core.Hidpp.ProfileEdit.LightingConfig? _fxLastApplied;
+    private static readonly string SelfApp =
+        System.Diagnostics.Process.GetCurrentProcess().ProcessName.ToLowerInvariant();
+
     private void ApplyProfileLighting(string app)
     {
         var device = SelectedLightingDevice;
@@ -448,12 +462,28 @@ public partial class MainWindow : Window
         if (app == _fxLastApp) return;
         _fxLastApp = app;
 
+        string source;
+        Rodent.Core.Hidpp.ProfileEdit.LightingConfig? cfg;
         var light = AppInstance.Profiles.ResolveLighting(app);
-        var cfg = light != null
-            ? new Rodent.Core.Hidpp.ProfileEdit.LightingConfig(
+
+        if (app == SelfApp && FxCard != null && FxCard.Visibility == Visibility.Visible)
+        {
+            cfg = CurrentFxConfig();          // what the Lighting tab is showing
+            source = "editing preview";
+        }
+        else if (light != null)
+        {
+            cfg = new Rodent.Core.Hidpp.ProfileEdit.LightingConfig(
                 light.Mode, 0, (byte)light.Shade, (byte)light.Shade, light.PeriodMs,
-                light.FirmwareMode, light.StripAlwaysOn)
-            : _fxDeviceCfg;   // no rule for this app: back to the mouse's own setting
+                light.FirmwareMode, light.StripAlwaysOn);
+            source = "profile rule";
+        }
+        else
+        {
+            cfg = _fxDeviceCfg;               // no rule for this app: the mouse's own setting
+            source = "mouse default";
+        }
+
         if (cfg == null)
         {
             Log.Debug($"lighting: '{app}' — no rule and no known base lighting, leaving as is");
@@ -464,8 +494,7 @@ public partial class MainWindow : Window
         if (cfg == _fxLastApplied) return;
         _fxLastApplied = cfg;
 
-        Log.Info($"lighting: '{app}' -> mode {cfg.Mode} shade {cfg.G} " +
-                 $"{(light != null ? "(profile rule)" : "(mouse default)")}");
+        Log.Info($"lighting: '{app}' -> mode {cfg.Mode} shade {cfg.G} ({source})");
         System.Threading.Tasks.Task.Run(() =>
         {
             bool ok = device.WriteLighting(cfg, persist: false);
