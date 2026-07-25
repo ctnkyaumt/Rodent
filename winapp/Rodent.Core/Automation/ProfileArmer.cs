@@ -8,6 +8,10 @@ namespace Rodent.Core.Automation;
 /// real keyboard emits), and forces onboard mode so the mouse actually sends
 /// them. The host keyboard hook then owns those buttons entirely. Disarm writes
 /// the backup back — the mouse leaves exactly as it arrived.
+///
+/// Works with any <see cref="IButtonDevice"/>; <see cref="SignalBytes"/> is the
+/// HID++ encoding, so a brand whose actions encode differently supplies its own
+/// (see <see cref="IButtonDevice.RemapButton"/>).
 /// </summary>
 public static class ProfileArmer
 {
@@ -17,7 +21,7 @@ public static class ProfileArmer
     /// <summary>Onboard 4-byte action: SEND MODIFIER_AND_KEY, no mods, F13+.</summary>
     public static byte[] SignalBytes(int button) => new byte[] { 0x80, 0x02, 0x00, SignalHid(button) };
 
-    public static (bool ok, string? error) Arm(LogiDevice d, ProfilesConfig cfg)
+    public static (bool ok, string? error) Arm(IButtonDevice d, ProfilesConfig cfg)
     {
         // Backup once (kept across sessions until a clean restore).
         if (cfg.HwBackup.Count == 0)
@@ -52,7 +56,7 @@ public static class ProfileArmer
         return (true, null);
     }
 
-    public static (bool ok, string? error) Disarm(LogiDevice d, ProfilesConfig cfg)
+    public static (bool ok, string? error) Disarm(IButtonDevice d, ProfilesConfig cfg)
     {
         bool all = TryRestore(d, cfg);
         if (all) cfg.HwBackup.Clear(); // next arm re-reads, so onboard edits survive
@@ -61,7 +65,7 @@ public static class ProfileArmer
         return all ? (true, null) : (false, "some buttons couldn't be restored — try again");
     }
 
-    private static bool TryRestore(LogiDevice d, ProfilesConfig cfg)
+    private static bool TryRestore(IButtonDevice d, ProfilesConfig cfg)
     {
         bool all = true;
         foreach (var (b, hex) in cfg.HwBackup)

@@ -1,3 +1,5 @@
+using Rodent.Core.Devices;
+
 namespace Rodent.Core.Hidpp;
 
 /// <summary>
@@ -9,8 +11,6 @@ namespace Rodent.Core.Hidpp;
 public static class OnboardProfiles
 {
     public sealed record ProfileInfo(int Buttons, int GButtons, int Sectors, int Size);
-
-    public sealed record ButtonAction(int Index, string Label, bool IsMacro = false);
 
     /// <summary>getInfo (func 0x00). Null if the device has no usable onboard memory.</summary>
     public static ProfileInfo? ReadInfo(FeatureTable f)
@@ -72,9 +72,9 @@ public static class OnboardProfiles
                           (b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0xFF));
 
     /// <summary>Read and decode the buttons of the first (or active) profile.</summary>
-    public static List<ButtonAction> ReadButtons(FeatureTable f)
+    public static List<DeviceButton> ReadButtons(FeatureTable f)
     {
-        var result = new List<ButtonAction>();
+        var result = new List<DeviceButton>();
         var info = ReadInfo(f);
         if (info == null) return result;
 
@@ -112,7 +112,7 @@ public static class OnboardProfiles
             }
             else label = DecodeButton(b0, b1, b2, b3);
 
-            result.Add(new ButtonAction(i + 1, label, isMacro));
+            result.Add(new DeviceButton(i + 1, label, isMacro));
         }
         return result;
     }

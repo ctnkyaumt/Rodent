@@ -52,7 +52,7 @@ public partial class App : Application
         Profiles = ProfilesConfig.Load();
         Automation = new AutomationService(Profiles);
         Automation.DeviceProvider = () =>
-            Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedDevice);
+            Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedDpiDevice);
         Automation.Start();
         SetupTray();
 

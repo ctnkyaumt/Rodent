@@ -15,11 +15,17 @@ public enum Brand
 }
 
 /// <summary>
-/// Common surface every device driver exposes, regardless of brand/protocol.
-/// <see cref="LogiDevice"/> is the only full implementation (HID++ 2.0); the other
-/// brands are <see cref="StubDeviceDriver"/>s — recognised and named, but their
-/// protocols aren't ported yet (Initialize returns false). This interface is the
-/// seam future brand drivers plug into.
+/// Common surface every device driver exposes, regardless of brand/protocol:
+/// identity, readable info, and the generic settings list.
+///
+/// Anything beyond that is a capability interface — <see cref="IButtonDevice"/>,
+/// <see cref="IMacroDevice"/>, <see cref="ILightingDevice"/>,
+/// <see cref="IDpiDevice"/>, <see cref="IHidppDevice"/> — which a driver
+/// implements once it can actually do that job. Callers ask for the capability,
+/// never for a brand, so a new brand driver lights up the existing UI and tools
+/// the moment it implements one. <see cref="LogiDevice"/> (HID++ 2.0) implements
+/// them all today; the other brand drivers implement what their ported protocol
+/// supports so far.
 /// </summary>
 public interface IDeviceDriver : IDisposable
 {
@@ -37,6 +43,10 @@ public interface IDeviceDriver : IDisposable
 
     /// <summary>Read-only info chips (firmware, …).</summary>
     IReadOnlyList<InfoItem> Info { get; }
+
+    /// <summary>Main firmware version, or null. Drivers that publish it as an
+    /// info chip get this for free.</summary>
+    string? Firmware => Info.FirstOrDefault(i => i.Label == "Firmware")?.Value;
 
     /// <summary>Probe the device and load its state. False = not usable (unknown
     /// device, or — for the stub brands — protocol not implemented yet).</summary>

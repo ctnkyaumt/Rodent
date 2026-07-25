@@ -7,15 +7,18 @@ namespace Rodent.Core.Devices;
 /// A connected Logitech HID++ 2.0 device. Discovers supported features and
 /// exposes them as generic Settings. Feature logic is a direct port of the
 /// corresponding Solaar templates (lib/logitech_receiver/settings_templates.py).
+///
+/// Implements every capability interface; brand drivers implement the ones their
+/// protocol covers, and the UI/tools work off those rather than off the type.
 /// </summary>
-public sealed class LogiDevice : IDeviceDriver
+public sealed class LogiDevice : IDeviceDriver, IButtonDevice, IMacroDevice, ILightingDevice, IDpiDevice, IHidppDevice
 {
     public Brand Brand => Brand.Logitech;
 
     private readonly HidppTransport _transport;
     private readonly FeatureTable _features;
 
-    /// <summary>Exposed for debugging/probing raw feature calls.</summary>
+    /// <summary>Raw HID++ access (<see cref="IHidppDevice"/>) for probing/diagnostics.</summary>
     public FeatureTable Features => _features;
 
     public string Name { get; private set; } = "Logitech device";
@@ -40,7 +43,8 @@ public sealed class LogiDevice : IDeviceDriver
 
     IReadOnlyList<Setting> IDeviceDriver.Settings => Settings;
     IReadOnlyList<InfoItem> IDeviceDriver.Info => Info;
-    public List<OnboardProfiles.ButtonAction> Buttons { get; } = new();
+    public List<DeviceButton> Buttons { get; } = new();
+    IReadOnlyList<DeviceButton> IButtonDevice.Buttons => Buttons;
     public List<LedControl.Zone> Leds { get; } = new();
 
     public LogiDevice(HidppTransport transport, ushort vendorId, ushort productId, string devicePath)

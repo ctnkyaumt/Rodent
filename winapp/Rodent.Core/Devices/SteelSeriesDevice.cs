@@ -12,6 +12,10 @@ namespace Rodent.Core.Devices;
 /// DPI/rate WRITES are intentionally not wired into the settings UI yet — the
 /// encoded-value/report-collection choices need confirming on real hardware
 /// before Rodent should push them. Reads/identification are safe.
+///
+/// Next step when hardware is available: implement <see cref="IDpiDevice"/> on
+/// top of <see cref="BuildDpi"/>/<see cref="BuildRate"/>, then
+/// <see cref="IButtonDevice"/>. The GUI and Rodent.Probe follow automatically.
 /// </summary>
 public sealed class SteelSeriesDevice : IDeviceDriver
 {

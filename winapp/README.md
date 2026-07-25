@@ -51,6 +51,23 @@ dotnet publish Rodent.App -c Release -r win-x64 --self-contained \
 Settings are **data-driven**: the engine exposes each capability as a generic
 `Setting` (Toggle / Choice / Range) with `Read`/`Write` delegates. The GUI renders
 a control purely from the setting's kind — no per-feature UI code. Adding a feature
-means adding one builder method in `LogiDevice`; the GUI picks it up automatically.
+means adding one builder method in the driver; the GUI picks it up automatically.
+
+Drivers are **capability-based**, not brand-based
+(`Rodent.Core/Devices/Capabilities.cs`):
+
+| Interface | Unlocks |
+|-----------|---------|
+| `IDeviceDriver` | identification, info chips, generic settings — every device |
+| `IButtonDevice` | Assignments tab, per-app arming, Probe `writetest` |
+| `IMacroDevice` | on-device macros, Probe `macrotest`/`repeattest` |
+| `ILightingDevice` | Lighting tab, per-profile lighting |
+| `IDpiDevice` | DPI-slots panel, DPI bindings |
+| `IHidppDevice` | raw HID++ feature access (Probe protocol experiments) |
+
+Nothing in the GUI or the Probe asks "is this a Logitech?" — they ask for the
+capability they need. `LogiDevice` (HID++ 2.0) implements them all; the other
+brand drivers implement what their ported protocol covers so far, and gain the
+matching UI the moment they implement one.
 
 [HidSharp]: https://www.nuget.org/packages/HidSharp

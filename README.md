@@ -57,6 +57,10 @@ no background bloat: one small WPF app that talks to the mouse directly.
   The SteelSeries and SinoWealth protocols are ported from libratbag but stay
   **read-only until verified on real hardware**; the rest are stubs. See
   `winapp/Rodent.Core/Devices/`.
+- Support is expressed as **capabilities**, not brands: a driver implements
+  `IButtonDevice` / `ILightingDevice` / `IDpiDevice` / `IMacroDevice` as its
+  protocol lands, and the matching tabs and diagnostics turn on for it with no
+  other changes. Nothing in the app or tooling is gated on "is this Logitech".
 
 ## What doesn't (yet)
 

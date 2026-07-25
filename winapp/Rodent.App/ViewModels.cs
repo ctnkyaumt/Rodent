@@ -23,24 +23,21 @@ public sealed class DeviceViewModel : NotifyBase
 {
     public IDeviceDriver Device { get; }
 
-    /// <summary>The Logitech driver when this is a Logitech device; null otherwise.
-    /// The Assignments/Lighting/DPI-slots/Per-App tabs are Logitech-only and gate
-    /// on this.</summary>
-    public LogiDevice? Logi => Device as LogiDevice;
+    // What this device can actually do. Each tab gates on the capability it needs,
+    // so a brand driver that gains one shows up in that tab with no UI changes.
+    public IButtonDevice? ButtonDev => Device as IButtonDevice;
+    public IMacroDevice? MacroDev => Device as IMacroDevice;
+    public ILightingDevice? LightDev => Device as ILightingDevice;
+    public IDpiDevice? DpiDev => Device as IDpiDevice;
 
     public string Name => Device.Name;
     public string Kind => Device.Kind;
 
-    private string? Firmware =>
-        Logi?.Firmware ?? Device.Info.FirstOrDefault(i => i.Label == "Firmware")?.Value;
+    private string? Firmware => Device.Firmware;
     public string KindLine => Firmware is { Length: > 0 } fw ? $"{Device.Kind}  ·  fw {fw}" : Device.Kind;
 
     /// <summary>True for models Rodent hasn't been verified on (everything but the G402).</summary>
     public bool Untested => Device.Support != Rodent.Core.Devices.DeviceSupport.Verified;
-
-    /// <summary>Logitech HID++ device with the full feature set (assignments,
-    /// lighting, onboard profiles). Other brands are recognised but read-only.</summary>
-    public bool FullSupport => Logi != null;
 
     public ushort ProductId => Device.ProductId;
     public ushort VendorId => Device.VendorId;

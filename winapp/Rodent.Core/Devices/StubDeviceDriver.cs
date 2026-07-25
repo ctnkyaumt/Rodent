@@ -4,10 +4,13 @@ namespace Rodent.Core.Devices;
 
 /// <summary>
 /// Base for brands whose protocol isn't ported yet. It carries identity (so the
-/// device can be recognised and named) but <see cref="Initialize"/> returns false:
-/// there is nothing to read or write until a real driver replaces it. Concrete
-/// brand drivers should stop deriving from this and implement
-/// <see cref="IDeviceDriver"/> directly once their protocol lands.
+/// device can be recognised and named) but exposes no settings.
+///
+/// Porting a brand means implementing the capability interfaces its protocol
+/// covers — <see cref="IButtonDevice"/>, <see cref="ILightingDevice"/>,
+/// <see cref="IDpiDevice"/>, <see cref="IMacroDevice"/> — at which point the
+/// matching GUI tabs and Rodent.Probe commands start working for it with no
+/// changes anywhere else.
 /// </summary>
 public abstract class StubDeviceDriver : IDeviceDriver
 {

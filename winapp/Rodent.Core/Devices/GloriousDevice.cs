@@ -11,6 +11,10 @@ namespace Rodent.Core.Devices;
 /// sensor-dependent (raw = DPI/100 for PMW3389, DPI/100-1 for PMW3360/3327), and
 /// selecting the wrong sensor writes wrong DPI — so on this untested-in-Rodent
 /// hardware, writes stay off; reads/identification are safe.
+///
+/// Next step when hardware is available: implement <see cref="IDpiDevice"/> from
+/// <see cref="ReadConfig"/>/<see cref="EncodeDpi"/> once the sensor is known,
+/// then <see cref="IButtonDevice"/> from the config block's button table.
 /// </summary>
 public sealed class GloriousDevice : IDeviceDriver
 {

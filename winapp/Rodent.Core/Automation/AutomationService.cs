@@ -36,8 +36,10 @@ public sealed class AutomationService : IDisposable
     private int _heldRepeatButton = -1;               // button whose while-held loop is running
     private int _sniperButton = -1;                    // button holding DPI Shift (sniper)
 
-    /// <summary>The device DPI bindings act on (wired by the app to the selected mouse).</summary>
-    public Func<Rodent.Core.Devices.LogiDevice?>? DeviceProvider;
+    /// <summary>The device DPI bindings act on (wired by the app to the selected
+    /// mouse). Any driver that implements <see cref="Rodent.Core.Devices.IDpiDevice"/>
+    /// works; others simply ignore DPI bindings.</summary>
+    public Func<Rodent.Core.Devices.IDpiDevice?>? DeviceProvider;
 
     public string CurrentApp => _watcher.CurrentApp;
     public bool RepeatActive { get { lock (_repeatLock) return _repeatCts != null; } }

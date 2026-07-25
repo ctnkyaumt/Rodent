@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -37,9 +37,9 @@ public partial class MouseButtonsView : UserControl
 
     public void Load(DeviceViewModel vm)
     {
-        // Assignments are Logitech-only (HID++ onboard profiles). Other brands are
-        // recognised but not controllable here.
-        if (vm.Logi == null) { _vm = null; ShowEmpty($"Button assignments aren't supported on {vm.Name} yet."); return; }
+        // Needs a driver that can list and remap buttons; brands whose protocol
+        // isn't ported that far are recognised but not editable here.
+        if (vm.ButtonDev == null) { _vm = null; ShowEmpty($"Button assignments aren't supported on {vm.Name} yet."); return; }
         _vm = vm;
         UntestedBanner.Visibility = vm.Untested ? Visibility.Visible : Visibility.Collapsed;
         if (vm.Untested)
@@ -127,7 +127,7 @@ public partial class MouseButtonsView : UserControl
         if (vm == null) return;
         System.Threading.Tasks.Task.Run(() =>
         {
-            bool ok = vm.Logi!.EnableOnboardMode();
+            bool ok = vm.ButtonDev!.EnableOnboardMode();
             Dispatcher.Invoke(() =>
             {
                 RefreshModeBanner();
@@ -145,7 +145,7 @@ public partial class MouseButtonsView : UserControl
         System.Threading.Tasks.Task.Run(() =>
         {
             bool onboard;
-            try { onboard = vm.Logi!.IsOnboardMode(); } catch { onboard = true; }
+            try { onboard = vm.ButtonDev!.IsOnboardMode(); } catch { onboard = true; }
             Dispatcher.Invoke(() =>
                 ModeBanner.Visibility = onboard ? Visibility.Collapsed : Visibility.Visible);
         });
@@ -172,7 +172,7 @@ public partial class MouseButtonsView : UserControl
         Root.Children.Add(img);
 
         bool armed = AppInstance.Profiles.Enabled;
-        foreach (var btn in vm.Logi!.Buttons)
+        foreach (var btn in vm.ButtonDev!.Buttons)
         {
             var a = art.Anchors.FirstOrDefault(x => x.Index == btn.Index);
             if (a == null) continue;
@@ -265,7 +265,7 @@ public partial class MouseButtonsView : UserControl
             var bytes = act.Bytes;
             item.Click += (_, _) => ApplyFlash(vm, index, () =>
             {
-                var (ok, newLabel) = vm.Logi!.RemapButton(index, bytes);
+                var (ok, newLabel) = vm.ButtonDev!.RemapButton(index, bytes);
                 if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, index, null); // no longer a macro
                 return (ok, ok ? newLabel : null, ok ? null : "Couldn't write to the device. If G HUB is running, quit it and try again.");
             });
@@ -280,9 +280,14 @@ public partial class MouseButtonsView : UserControl
             // The onboard chip can never cancel a Toggle loop (proven dead end) —
             // downgrade a library Toggle macro to run-once on the hardware profile.
             if (repeat == Macro.RepeatMode.Toggle) repeat = Macro.RepeatMode.Once;
+            if (vm.MacroDev == null)
+            {
+                ShowToast($"{vm.Name} can't store macros on the device yet.");
+                return;
+            }
             ApplyFlash(vm, index, () =>
             {
-                var (ok, _, _, error) = vm.Logi!.AssignMacro(index, steps, repeat);
+                var (ok, _, _, error) = vm.MacroDev.AssignMacro(index, steps, repeat);
                 if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, index, name);
                 return (ok, ok ? name : null, ok ? null : $"Macro not saved: {error}.");
             });
@@ -328,7 +333,7 @@ public partial class MouseButtonsView : UserControl
             {
                 try
                 {
-                    if (!vm.Logi!.IsOnboardMode()) enabledMode = vm.Logi!.EnableOnboardMode();
+                    if (!vm.ButtonDev!.IsOnboardMode()) enabledMode = vm.ButtonDev!.EnableOnboardMode();
                 }
                 catch { }
             }
@@ -601,19 +606,19 @@ public partial class MouseButtonsView : UserControl
                 bool ok;
                 if (bytes != null)
                 {
-                    ok = vm.Logi!.RemapButton(b, bytes).ok;
+                    ok = vm.ButtonDev!.RemapButton(b, bytes).ok;
                     if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, b, null);
                 }
-                else if (steps != null)
+                else if (steps != null && vm.MacroDev != null)
                 {
-                    ok = vm.Logi!.AssignMacro(b, steps, repeat).ok;
+                    ok = vm.MacroDev.AssignMacro(b, steps, repeat).ok;
                     if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, b, binding.Describe());
                 }
                 else { skipped.Add($"{b}: {binding.Describe()}"); continue; }
                 if (ok) written++; else skipped.Add($"{b}: write failed");
             }
             bool enabledMode = false;
-            try { if (!vm.Logi!.IsOnboardMode()) enabledMode = vm.Logi!.EnableOnboardMode(); } catch { }
+            try { if (!vm.ButtonDev!.IsOnboardMode()) enabledMode = vm.ButtonDev!.EnableOnboardMode(); } catch { }
 
             Dispatcher.Invoke(() =>
             {

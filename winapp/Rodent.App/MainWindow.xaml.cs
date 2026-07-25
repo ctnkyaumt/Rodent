@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -117,7 +117,7 @@ public partial class MainWindow : Window
 
         if (_devices.Count == 0)
         {
-            DeviceStatus.Text = "No Logitech devices found.";
+            DeviceStatus.Text = "No supported devices found.";
             ClearDevicePages();
         }
         else
@@ -160,24 +160,26 @@ public partial class MainWindow : Window
         LoadDpiPanel(vm);
     }
 
-    /// <summary>Show only the tabs a device supports. Non-Logitech devices are
-    /// recognised but read-only, so they get the Sensitivity tab (info only) and
-    /// an experimental note; the HID++-only tabs are hidden.</summary>
+    /// <summary>Show each tab only when the selected driver has the capability it
+    /// needs — brand plays no part, so a driver gaining a capability gains its tab.</summary>
     private void ApplyDeviceCapabilities(DeviceViewModel vm)
     {
-        bool full = vm.FullSupport;
-        TabButtons.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
-        TabLighting.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
-        TabPerApp.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
-        ForeignNote.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
-        if (!full)
-        {
+        bool buttons = vm.ButtonDev != null;
+        bool lighting = vm.LightDev != null;
+        TabButtons.Visibility = buttons ? Visibility.Visible : Visibility.Collapsed;
+        TabLighting.Visibility = lighting ? Visibility.Visible : Visibility.Collapsed;
+        TabPerApp.Visibility = buttons ? Visibility.Visible : Visibility.Collapsed;
+
+        // Nothing controllable at all: explain, and don't leave a hidden tab selected.
+        bool anything = buttons || lighting || vm.DpiDev != null || vm.Settings.Count > 0;
+        ForeignNote.Visibility = anything ? Visibility.Collapsed : Visibility.Visible;
+        if (!anything)
             ForeignNoteText.Text = $"{vm.Name} is recognised but not controllable yet — Rodent's driver for this " +
-                "brand isn't implemented/verified. Its identification and firmware are shown above; button " +
-                "assignments, lighting and per-app profiles are Logitech-only for now.";
-            if (TabButtons.IsChecked == true || TabLighting.IsChecked == true || TabPerApp.IsChecked == true)
-                TabDpi.IsChecked = true; // switch off a now-hidden tab
-        }
+                "model can identify it, but its protocol isn't ported/verified far enough to read or write " +
+                "settings. Identification and firmware are shown above.";
+        if (TabButtons.IsChecked == true && !buttons) TabDpi.IsChecked = true;
+        if (TabLighting.IsChecked == true && !lighting) TabDpi.IsChecked = true;
+        if (TabPerApp.IsChecked == true && !buttons) TabDpi.IsChecked = true;
     }
 
     // ---- Lighting (live over 0x1300; follows the Assignments profile picker) ----
@@ -191,7 +193,7 @@ public partial class MainWindow : Window
     private void LoadLighting(DeviceViewModel vm)
     {
         _fxVm = vm;
-        var logi = vm.Logi;
+        var logi = vm.LightDev;
         if (logi == null) { FxCard.Visibility = Visibility.Collapsed; return; }
         System.Threading.Tasks.Task.Run(() =>
         {
@@ -306,7 +308,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void ApplyFxLive()
     {
-        var logi = _fxVm?.Logi;
+        var logi = _fxVm?.LightDev;
         if (logi == null || FxCard.Visibility != Visibility.Visible) return;
         var cfg = CurrentFxConfig();
         System.Threading.Tasks.Task.Run(() => logi.WriteLighting(cfg, persist: false));
@@ -369,7 +371,7 @@ public partial class MainWindow : Window
 
     private void FxApply_Click(object sender, RoutedEventArgs e)
     {
-        var logi = _fxVm?.Logi;
+        var logi = _fxVm?.LightDev;
         if (logi == null) return;
         var cfg = CurrentFxConfig();
         var profile = SelectedFxProfile();
@@ -408,7 +410,7 @@ public partial class MainWindow : Window
     private string _fxLastApp = "";
     private void ApplyProfileLighting(string app)
     {
-        var device = SelectedDevice;
+        var device = SelectedLightingDevice;
         if (device == null || app == _fxLastApp) return;
         _fxLastApp = app;
         var light = AppInstance.Profiles.ResolveLighting(app);
@@ -429,7 +431,7 @@ public partial class MainWindow : Window
     private void LoadDpiPanel(DeviceViewModel vm)
     {
         _dpiVm = vm;
-        var logi = vm.Logi;
+        var logi = vm.DpiDev;
         if (logi == null) { DpiCard.Visibility = Visibility.Collapsed; return; }
         System.Threading.Tasks.Task.Run(() =>
         {
@@ -554,7 +556,7 @@ public partial class MainWindow : Window
 
     private void DpiApply_Click(object sender, RoutedEventArgs e)
     {
-        var logi = _dpiVm?.Logi;
+        var logi = _dpiVm?.DpiDev;
         var cfg = _dpi;
         if (logi == null || cfg == null) return;
         DpiApply.IsEnabled = false;
@@ -594,10 +596,14 @@ public partial class MainWindow : Window
     // ---- Per-App profiles ----
     private bool _armSync; // true while code (not the user) sets ArmedCheck
 
-    /// <summary>Logitech device currently selected in the sidebar (arming target);
-    /// null when a non-Logitech device is selected (per-app is Logitech-only).</summary>
-    public Rodent.Core.Devices.LogiDevice? SelectedDevice =>
-        (DeviceList.SelectedItem as DeviceViewModel)?.Logi;
+    /// <summary>Driver selected in the sidebar. Per-app arming, DPI bindings and
+    /// profile lighting each ask it for the capability they need, so any brand
+    /// driver implementing that capability is a valid target.</summary>
+    public IDeviceDriver? SelectedDriver => (DeviceList.SelectedItem as DeviceViewModel)?.Device;
+
+    public IButtonDevice? SelectedButtonDevice => SelectedDriver as IButtonDevice;
+    public IDpiDevice? SelectedDpiDevice => SelectedDriver as IDpiDevice;
+    public ILightingDevice? SelectedLightingDevice => SelectedDriver as ILightingDevice;
 
     private void SetupPerApp()
     {
@@ -684,7 +690,7 @@ public partial class MainWindow : Window
     {
         if (_armSync) return;
         bool arm = ArmedCheck.IsChecked == true;
-        var device = SelectedDevice;
+        var device = SelectedButtonDevice;
         if (device == null)
         {
             _armSync = true; ArmedCheck.IsChecked = !arm; _armSync = false;
