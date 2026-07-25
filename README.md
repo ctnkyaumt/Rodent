@@ -16,13 +16,34 @@ no background bloat: one small WPF app that talks to the mouse directly.
 <img src="docs/rodent/rodent-main.png" width="80%"/>
 </p>
 
+## Install
+
+The download is a single exe that installs itself — there is no separate setup
+package. Run it and it offers to copy itself to
+`%LOCALAPPDATA%\Programs\Rodent`, add a Start menu entry, register an
+uninstaller under **Apps & features**, and optionally start with Windows. Pick
+**Run without installing** to keep it portable instead. No admin rights are
+needed at any point.
+
+Remove it from the Windows **Apps & features** list, or:
+
+```
+Rodent.exe --uninstall              # asks, then removes shortcuts + program files
+Rodent.exe --uninstall --purge      # also deletes saved profiles and macros
+```
+
+Settings already written to the mouse's onboard memory stay on the mouse.
+
 ## Command line
 
 `Rodent.exe --help` prints the full list. The common ones:
 
 ```
 Rodent.exe --list                 # print detected devices and their settings
+Rodent.exe --install --startup    # unattended install (add --silent for scripts)
+Rodent.exe --uninstall --silent   # unattended removal
 Rodent.exe --tray                 # start hidden in the notification area
+Rodent.exe --portable             # run in place, never prompt to install
 Rodent.exe --verbose              # debug logging, mirrored to the terminal
 ```
 
@@ -111,7 +132,9 @@ winapp/
 ```
 
 Build with the .NET 8 SDK: `dotnet build winapp/Rodent.App/Rodent.App.csproj`,
-or grab the single-file exe from the [Releases] page.
+or grab the single-file exe from the [Releases] page. A locally built (non
+single-file) copy installs too — setup copies the whole output folder in that
+case.
 
 [Releases]: https://github.com/ctnkyaumt/Rodent/releases
 

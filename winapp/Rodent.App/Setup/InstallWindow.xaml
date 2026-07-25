@@ -1,0 +1,67 @@
+<Window x:Class="Rodent.App.Setup.InstallWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Install Rodent" Height="430" Width="520"
+        Icon="pack://application:,,,/Assets/rodent.ico"
+        WindowStyle="None" ResizeMode="NoResize"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterScreen">
+
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="0"
+                        CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Border BorderBrush="{StaticResource Border}" BorderThickness="1">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="40"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- title bar -->
+      <Grid Grid.Row="0" Background="{StaticResource Panel}">
+        <TextBlock Text="Rodent Setup" Foreground="{StaticResource Muted}" FontWeight="SemiBold"
+                   VerticalAlignment="Center" Margin="16,0,0,0"/>
+        <Button x:Name="CloseBtn" Content="&#xE8BB;" Click="Cancel_Click"
+                HorizontalAlignment="Right" Width="46" Height="40"
+                FontFamily="Segoe MDL2 Assets" FontSize="10"
+                Foreground="{StaticResource Muted}" Background="Transparent" BorderThickness="0"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+      </Grid>
+
+      <StackPanel Grid.Row="1" Margin="28,22,28,0">
+        <TextBlock x:Name="Headline" Text="Install Rodent" Foreground="{StaticResource Text}"
+                   FontSize="22" FontWeight="SemiBold"/>
+        <TextBlock x:Name="Subhead" Foreground="{StaticResource Muted}" FontSize="13"
+                   TextWrapping="Wrap" Margin="0,6,0,0"
+                   Text="Rodent will be copied to your user folder — no admin rights needed — and added to the Start menu and Apps &amp; features."/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,18,0,0" Padding="14,12">
+          <StackPanel>
+            <TextBlock Text="Install location" Foreground="{StaticResource Muted}" FontSize="11"/>
+            <TextBlock x:Name="PathText" Foreground="{StaticResource Text}" FontSize="12"
+                       TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+          </StackPanel>
+        </Border>
+
+        <CheckBox x:Name="StartupCheck" Content="Start with Windows (hidden in the tray)"
+                  IsChecked="True" Margin="0,18,0,0"/>
+        <CheckBox x:Name="DesktopCheck" Content="Create a desktop shortcut" Margin="0,12,0,0"/>
+        <CheckBox x:Name="PurgeCheck" Content="Also delete my profiles and macros"
+                  Visibility="Collapsed" Margin="0,12,0,0"/>
+
+        <TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" FontSize="12"
+                   TextWrapping="Wrap" Margin="0,16,0,0"/>
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="28,18,28,22">
+        <Button x:Name="SkipBtn" Content="Run without installing" Click="Skip_Click" Margin="0,0,10,0"/>
+        <Button x:Name="CancelBtn" Content="Cancel" Click="Cancel_Click" Margin="0,0,10,0"/>
+        <Button x:Name="OkBtn" Content="Install" Style="{StaticResource AccentButton}" Click="Ok_Click"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

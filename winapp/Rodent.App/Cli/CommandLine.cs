@@ -8,10 +8,21 @@ public sealed class CliOptions
     public bool Help;
     public bool Version;
     public bool ListDevices;
+    public bool Install;
+    public bool Uninstall;
     public bool ShowLogPath;
 
     /// <summary>Start hidden in the tray (used by the run-at-boot entry).</summary>
     public bool Tray;
+    /// <summary>Run from wherever the exe sits; never offer to install.</summary>
+    public bool Portable;
+    /// <summary>No dialogs — for scripted install/uninstall.</summary>
+    public bool Silent;
+
+    // install/uninstall modifiers
+    public bool? Startup;          // null = ask (GUI) / default (silent)
+    public bool DesktopShortcut;
+    public bool Purge;             // uninstall: also delete profiles and macros
 
     // logging
     public LogLevel LogLevel = LogLevel.Info;
@@ -46,9 +57,20 @@ public sealed class CliOptions
                 case "-h": case "-?": case "/?": case "--help": o.Help = true; break;
                 case "-v": case "--version": o.Version = true; break;
                 case "-l": case "--list": case "--list-devices": o.ListDevices = true; break;
+                case "--install": o.Install = true; break;
+                case "--uninstall": case "--remove": o.Uninstall = true; break;
                 case "--log-path": o.ShowLogPath = true; break;
 
                 case "--tray": case "--minimized": o.Tray = true; break;
+                case "--portable": case "--no-install": o.Portable = true; break;
+                case "-s": case "--silent": case "--quiet": o.Silent = true; break;
+
+                case "--startup":
+                    o.Startup = !HasInline() || IsTruthy(inline);
+                    break;
+                case "--no-startup": o.Startup = false; break;
+                case "--desktop-shortcut": case "--desktop": o.DesktopShortcut = true; break;
+                case "--purge": o.Purge = true; break;
 
                 case "--log":
                 {
@@ -82,6 +104,9 @@ public sealed class CliOptions
         return o;
     }
 
+    private static bool IsTruthy(string s) =>
+        s is "1" or "yes" or "y" or "true" or "on" || s.Length == 0;
+
     public const string HelpText = """
         Rodent - mouse configurator (Logitech HID++, plus other brands)
 
@@ -89,7 +114,9 @@ public sealed class CliOptions
           Rodent.exe [command] [options]
 
         COMMANDS
-          (none)               Launch the app
+          (none)               Launch the app. Offers to install on first run.
+          --install            Install to %LOCALAPPDATA%\Programs\Rodent
+          --uninstall          Remove Rodent from this PC
           --list, -l           Print detected devices and exit
           --log-path           Print the log file location and exit
           --version, -v        Print the version and exit
@@ -97,6 +124,14 @@ public sealed class CliOptions
 
         RUN OPTIONS
           --tray               Start hidden in the notification area
+          --portable           Run in place; never prompt to install
+          --silent, -s         No dialogs (for scripted install/uninstall)
+
+        INSTALL OPTIONS
+          --startup[=yes|no]   Register (or not) start-with-Windows
+          --no-startup         Same as --startup=no
+          --desktop-shortcut   Also create a desktop shortcut
+          --purge              With --uninstall: delete profiles and macros too
 
         LOGGING
           --log <level>        off|error|warn|info|debug|trace  (default: info)
@@ -107,6 +142,8 @@ public sealed class CliOptions
           --verbose            Same as --log debug --console
 
         EXAMPLES
+          Rodent.exe --install --startup --desktop-shortcut
+          Rodent.exe --uninstall --purge --silent
           Rodent.exe --verbose            # troubleshoot device detection
           Rodent.exe --list
         """;

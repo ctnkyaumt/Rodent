@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Threading;
 using Rodent.App.Cli;
+using Rodent.App.Setup;
 using Rodent.Core.Automation;
 using Rodent.Core.Diagnostics;
 
@@ -15,6 +17,16 @@ public partial class App : Application
         {
             var v = typeof(App).Assembly.GetName().Version;
             return v == null ? "" : v.Build > 0 ? $"v{v.Major}.{v.Minor}.{v.Build}" : $"v{v.Major}.{v.Minor}";
+        }
+    }
+
+    /// <summary>"0.9.0" — what Apps &amp; features shows.</summary>
+    public static string VersionNumber
+    {
+        get
+        {
+            var v = typeof(App).Assembly.GetName().Version;
+            return v == null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}";
         }
     }
 
@@ -48,6 +60,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Setup runs windowed but never starts the engine: no HID handles, no hooks.
+        if (Options.Uninstall) { RunSetup(SetupMode.Uninstall); return; }
+        if (Options.Install) { RunSetup(SetupMode.Install); return; }
+
         // Single instance: a second launch would install a second mouse hook
         // (rules firing twice) and a second tray icon. Surface the first instead.
         ShowWindowMessage = RegisterWindowMessage("RodentShowWindow");
@@ -60,6 +76,8 @@ public partial class App : Application
             Shutdown();
             return;
         }
+
+        if (!OfferInstall()) return;
 
         Profiles = ProfilesConfig.Load();
         Log.Info($"profiles loaded: {Profiles.Profiles.Count} per-app rule(s)");
@@ -79,6 +97,46 @@ public partial class App : Application
             new System.Windows.Interop.WindowInteropHelper(win).EnsureHandle();
         else
             win.Show();
+    }
+
+    /// <summary>
+    /// First run of a downloaded exe: offer to install. Returns false when the
+    /// app should not continue starting (installed and relaunched, or cancelled).
+    /// </summary>
+    private bool OfferInstall()
+    {
+        if (Options.Portable || Options.Tray || Installer.IsInstalled || Installer.RunningFromInstall)
+            return true;
+
+        Log.Info("not installed — showing the first-run setup prompt");
+        var dlg = new InstallWindow(SetupMode.FirstRun);
+        dlg.ShowDialog();
+
+        switch (dlg.Result)
+        {
+            case SetupResult.Installed:
+                Installer.LaunchInstalled();
+                Quitting = true;
+                Shutdown();
+                return false;
+            case SetupResult.RunPortable:
+                Log.Info("running portable");
+                return true;
+            default:
+                Quitting = true;
+                Shutdown();
+                return false;
+        }
+    }
+
+    private void RunSetup(SetupMode mode)
+    {
+        var dlg = new InstallWindow(mode);
+        dlg.ShowDialog();
+        if (dlg.Result == SetupResult.Installed)
+            Installer.LaunchInstalled();
+        Quitting = true;
+        Shutdown(dlg.Result == SetupResult.Cancelled ? 1 : 0);
     }
 
     // ---- crash handling ----

@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Rodent.App.Setup;
 using Rodent.Core.Automation;
 using Rodent.Core.Devices;
 using Rodent.Core.Diagnostics;
@@ -798,18 +799,12 @@ public partial class MainWindow : Window
     }
 
     // ---- launch at startup (HKCU Run key — per-user, no admin needed) ----
-    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValueName = "Rodent";
     private bool _startupSync;
 
     private void InitStartupToggle()
     {
         _startupSync = true;
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath);
-            StartupCheck.IsChecked = key?.GetValue(RunValueName) != null;
-        }
+        try { StartupCheck.IsChecked = Installer.StartupEnabled; }
         catch { StartupCheck.IsEnabled = false; }
         _startupSync = false;
     }
@@ -817,19 +812,20 @@ public partial class MainWindow : Window
     private void Startup_Changed(object sender, RoutedEventArgs e)
     {
         if (_startupSync) return;
+        bool wanted = StartupCheck.IsChecked == true;
         try
         {
-            using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKeyPath);
-            if (StartupCheck.IsChecked == true)
-                key.SetValue(RunValueName, $"\"{Environment.ProcessPath}\" --tray"); // start hidden in the tray
-            else
-                key.DeleteValue(RunValueName, throwOnMissingValue: false);
+            // Points at the installed exe when Rodent is installed, so the entry
+            // survives deleting the copy this instance was launched from.
+            Installer.SetStartup(wanted);
+            Log.Info($"start with Windows: {(wanted ? "on" : "off")}");
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Exception(ex, "writing the startup entry");
             // Revert the box if the registry write failed.
             _startupSync = true;
-            StartupCheck.IsChecked = StartupCheck.IsChecked != true;
+            StartupCheck.IsChecked = !wanted;
             _startupSync = false;
         }
     }

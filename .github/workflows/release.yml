@@ -1,7 +1,8 @@
 name: Release
 
 # Push a tag like v0.9 (or v0.9.1) to build a single-file exe and publish it
-# as a GitHub Release — the asset is the exe itself, no archive.
+# as a GitHub Release — the asset is the exe itself, no archive. That exe is
+# both the app and its own installer (it offers to install on first run).
 on:
   push:
     tags: ['v*']
@@ -39,9 +40,9 @@ jobs:
 
       - name: Name the asset
         shell: pwsh
-        run: Rename-Item publish/Rodent.exe "Rodent-${{ github.ref_name }}.exe"
+        run: Rename-Item publish/Rodent.exe "Rodent-Setup-${{ github.ref_name }}.exe"
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: publish/Rodent-${{ github.ref_name }}.exe
+          files: publish/Rodent-Setup-${{ github.ref_name }}.exe
           generate_release_notes: true

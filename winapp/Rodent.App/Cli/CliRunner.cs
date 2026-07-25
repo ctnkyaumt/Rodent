@@ -1,4 +1,5 @@
 using System.Text;
+using Rodent.App.Setup;
 using Rodent.Core.Devices;
 using Rodent.Core.Diagnostics;
 using Rodent.Core.Model;
@@ -7,7 +8,7 @@ namespace Rodent.App.Cli;
 
 /// <summary>
 /// Commands that finish without ever showing a window. Returns an exit code, or
-/// null when the request needs the GUI (normal launch).
+/// null when the request needs the GUI (normal launch, interactive installer).
 /// </summary>
 internal static class CliRunner
 {
@@ -25,6 +26,10 @@ internal static class CliRunner
         if (o.Version) { ConsoleHost.Out($"Rodent {App.VersionTag}"); ConsoleHost.Finish(); return 0; }
         if (o.ShowLogPath) { ConsoleHost.Out(LogPathReport()); ConsoleHost.Finish(); return 0; }
         if (o.ListDevices) return ListDevices();
+
+        // Interactive install/uninstall are handled by the GUI (App.OnStartup).
+        if (o.Install && o.Silent) return SilentInstall(o);
+        if (o.Uninstall && o.Silent) return SilentUninstall(o);
 
         return null;
     }
@@ -101,6 +106,42 @@ internal static class CliRunner
         {
             Log.Exception(ex, $"reading setting {s.Name}");
             return "(read failed)";
+        }
+    }
+
+    private static int SilentInstall(CliOptions o)
+    {
+        try
+        {
+            Installer.Install(o.Startup ?? false, o.DesktopShortcut, s => ConsoleHost.Out("  " + s));
+            ConsoleHost.Out($"Installed to {Installer.InstallRoot}");
+            ConsoleHost.Finish();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Log.Exception(ex, "silent install");
+            ConsoleHost.Error("Install failed: " + ex.Message);
+            ConsoleHost.Finish();
+            return 1;
+        }
+    }
+
+    private static int SilentUninstall(CliOptions o)
+    {
+        try
+        {
+            Installer.Uninstall(o.Purge, s => ConsoleHost.Out("  " + s));
+            ConsoleHost.Out("Rodent removed.");
+            ConsoleHost.Finish();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Log.Exception(ex, "silent uninstall");
+            ConsoleHost.Error("Uninstall failed: " + ex.Message);
+            ConsoleHost.Finish();
+            return 1;
         }
     }
 }
