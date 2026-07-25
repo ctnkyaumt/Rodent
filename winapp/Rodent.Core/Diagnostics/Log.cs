@@ -11,6 +11,13 @@ public enum LogLevel { Off = 0, Error = 1, Warn = 2, Info = 3, Debug = 4, Trace 
 /// Default sink is %LOCALAPPDATA%\Rodent\logs\rodent.log, rolled at 2 MB with
 /// five generations kept. <see cref="Echo"/> mirrors lines to a console when the
 /// process was launched from one (see the CLI layer).
+///
+/// Several Rodent processes share one file — the tray app plus any `Rodent.exe
+/// --list` style command run while it is up. FileMode.Append in .NET tracks its
+/// own offset rather than appending at the OS level, so two processes writing
+/// through their own handles overwrite each other's lines (a running session's
+/// log went missing exactly that way). A named mutex serialises writers across
+/// processes and every write seeks to the real end of file first.
 /// </summary>
 public static class Log
 {
@@ -19,6 +26,8 @@ public static class Log
 
     private static readonly object Gate = new();
     private static StreamWriter? _writer;
+    private static FileStream? _stream;
+    private static Mutex? _fileGate;
     private static string? _path;
 
     public static LogLevel Level { get; private set; } = LogLevel.Off;
@@ -44,10 +53,17 @@ public static class Log
             {
                 string target = string.IsNullOrWhiteSpace(file) ? DefaultFile : Path.GetFullPath(file);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                Roll(target);
-                // FileShare.ReadWrite so the user can tail the log while Rodent runs.
-                var fs = new FileStream(target, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-                _writer = new StreamWriter(fs, new UTF8Encoding(false)) { AutoFlush = true };
+                _fileGate = new Mutex(false, MutexNameFor(target));
+
+                using (var held = Hold())
+                    Roll(target);
+
+                // ReadWrite so the user can tail the log and another Rodent process
+                // can open the same file; Delete so a roll can rename it while a
+                // long-running tray instance still holds it open.
+                _stream = new FileStream(target, FileMode.Append, FileAccess.Write,
+                    FileShare.ReadWrite | FileShare.Delete);
+                _writer = new StreamWriter(_stream, new UTF8Encoding(false)) { AutoFlush = true };
                 _path = target;
             }
             catch
@@ -94,18 +110,60 @@ public static class Log
     private static void Write(LogLevel level, string tag, string message)
     {
         if (!IsEnabled(level)) return;
-        string line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {tag} [{Environment.CurrentManagedThreadId:D2}] {message}";
+        string line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {tag} [{Environment.ProcessId}:{Environment.CurrentManagedThreadId:D2}] {message}";
         lock (Gate)
         {
-            try { _writer?.WriteLine(line); } catch { /* disk full / handle lost */ }
+            try
+            {
+                if (_writer != null && _stream != null)
+                {
+                    using var held = Hold();
+                    // Another process may have grown the file since our last write.
+                    _stream.Seek(0, SeekOrigin.End);
+                    _writer.WriteLine(line);
+                }
+            }
+            catch { /* disk full / handle lost */ }
         }
         try { Echo?.Invoke(line); } catch { }
     }
 
+    /// <summary>Cross-process write lock, released when the returned token is disposed.</summary>
+    private static MutexToken Hold() => new(_fileGate);
+
+    private readonly struct MutexToken : IDisposable
+    {
+        private readonly Mutex? _mutex;
+        private readonly bool _held;
+
+        public MutexToken(Mutex? mutex)
+        {
+            _mutex = mutex;
+            if (mutex == null) { _held = false; return; }
+            try { _held = mutex.WaitOne(2000); }
+            catch (AbandonedMutexException) { _held = true; }  // previous owner was killed
+            catch { _held = false; }
+        }
+
+        public void Dispose()
+        {
+            if (_held) { try { _mutex!.ReleaseMutex(); } catch { } }
+        }
+    }
+
+    /// <summary>One mutex per log file, so a custom --log-file gets its own.</summary>
+    private static string MutexNameFor(string path) =>
+        @"Local\RodentLog_" + Convert.ToHexString(
+            System.Security.Cryptography.MD5.HashData(
+                Encoding.UTF8.GetBytes(path.ToLowerInvariant())));
+
     private static void CloseWriter()
     {
         try { _writer?.Dispose(); } catch { }
+        try { _fileGate?.Dispose(); } catch { }
         _writer = null;
+        _stream = null;
+        _fileGate = null;
         _path = null;
     }
 
