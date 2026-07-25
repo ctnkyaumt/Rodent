@@ -421,19 +421,48 @@ public partial class MainWindow : Window
         });
     }
 
-    /// <summary>Foreground app changed: switch to that profile's lighting, if it has one.</summary>
+    /// <summary>
+    /// Foreground app changed: switch to that profile's lighting. An app with no
+    /// lighting rule restores the mouse's own (onboard) lighting — otherwise the
+    /// last app's effect stayed on for everything else, which reads as "per-app
+    /// lighting is broken".
+    /// </summary>
     private string _fxLastApp = "";
+    private Rodent.Core.Hidpp.ProfileEdit.LightingConfig? _fxLastApplied;
     private void ApplyProfileLighting(string app)
     {
         var device = SelectedLightingDevice;
-        if (device == null || app == _fxLastApp) return;
+        if (device == null)
+        {
+            Log.Debug($"lighting: '{app}' — no lighting-capable device selected");
+            return;
+        }
+        if (app == _fxLastApp) return;
         _fxLastApp = app;
+
         var light = AppInstance.Profiles.ResolveLighting(app);
-        if (light == null) return;
-        var cfg = new Rodent.Core.Hidpp.ProfileEdit.LightingConfig(
-            light.Mode, 0, (byte)light.Shade, (byte)light.Shade, light.PeriodMs,
-            light.FirmwareMode, light.StripAlwaysOn);
-        System.Threading.Tasks.Task.Run(() => device.WriteLighting(cfg, persist: false));
+        var cfg = light != null
+            ? new Rodent.Core.Hidpp.ProfileEdit.LightingConfig(
+                light.Mode, 0, (byte)light.Shade, (byte)light.Shade, light.PeriodMs,
+                light.FirmwareMode, light.StripAlwaysOn)
+            : _fxDeviceCfg;   // no rule for this app: back to the mouse's own setting
+        if (cfg == null)
+        {
+            Log.Debug($"lighting: '{app}' — no rule and no known base lighting, leaving as is");
+            return;
+        }
+
+        // Alt-tabbing between apps that share a setting shouldn't keep re-sending it.
+        if (cfg == _fxLastApplied) return;
+        _fxLastApplied = cfg;
+
+        Log.Info($"lighting: '{app}' -> mode {cfg.Mode} shade {cfg.G} " +
+                 $"{(light != null ? "(profile rule)" : "(mouse default)")}");
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            bool ok = device.WriteLighting(cfg, persist: false);
+            if (!ok) Log.Warn($"lighting: write failed for '{app}'");
+        });
     }
 
     // ---- DPI panel (G HUB-style slots, stored in the onboard profile) ----
