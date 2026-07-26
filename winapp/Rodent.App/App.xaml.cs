@@ -38,7 +38,7 @@ public partial class App : Application
     /// <summary>Broadcast message a second instance posts to surface the first one.</summary>
     internal static uint ShowWindowMessage { get; private set; }
 
-    private System.Windows.Forms.NotifyIcon? _tray;
+    private TrayIcon? _tray;
     private Mutex? _mutex;
     private bool _ownsMutex;
 
@@ -182,32 +182,11 @@ public partial class App : Application
 
     private void SetupTray()
     {
-        _tray = new System.Windows.Forms.NotifyIcon
-        {
-            Icon = LoadTrayIcon(),
-            Visible = true,
-            Text = $"Rodent {VersionTag}",
-        };
-        var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Open Rodent", null, (_, _) => ShowMain());
-        menu.Items.Add("Quit", null, (_, _) => { Quitting = true; Shutdown(); });
-        _tray.ContextMenuStrip = menu;
-        _tray.MouseClick += (_, a) =>
-        {
-            if (a.Button == System.Windows.Forms.MouseButtons.Left) ShowMain();
-        };
-        _tray.DoubleClick += (_, _) => ShowMain();
-    }
-
-    private static System.Drawing.Icon LoadTrayIcon()
-    {
-        try
-        {
-            var sri = GetResourceStream(new Uri("pack://application:,,,/Assets/rodent.ico"));
-            if (sri != null) return new System.Drawing.Icon(sri.Stream);
-        }
-        catch { /* fall back to the stock icon */ }
-        return System.Drawing.SystemIcons.Application;
+        _tray = new TrayIcon($"Rodent {VersionTag}",
+            new Uri("pack://application:,,,/Assets/rodent.ico"));
+        _tray.Activated += ShowMain;
+        _tray.AddMenuItem("Open Rodent", ShowMain);
+        _tray.AddMenuItem("Quit", () => { Quitting = true; Shutdown(); });
     }
 
     private void ShowMain()
@@ -223,7 +202,7 @@ public partial class App : Application
     {
         (MainWindow as MainWindow)?.DisposeDevices();
         Automation?.Dispose();
-        if (_tray != null) { _tray.Visible = false; _tray.Dispose(); }
+        _tray?.Dispose();
         if (_mutex != null && _ownsMutex) { try { _mutex.ReleaseMutex(); } catch { } }
         _mutex?.Dispose();
         base.OnExit(e);

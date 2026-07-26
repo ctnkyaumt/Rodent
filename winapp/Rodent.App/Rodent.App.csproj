@@ -6,7 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
+    <!-- No WinForms: the tray icon is plain Win32 (TrayIcon.cs). Referencing it
+         pulled ~29 MB of assemblies into the self-contained build for one icon. -->
+    <!-- English only: the framework's localized resource satellites are ~16 MB. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>Rodent</AssemblyName>
     <ApplicationIcon>Assets\rodent.ico</ApplicationIcon>
@@ -33,11 +36,21 @@
     <Resource Include="Assets\rodent.ico" />
   </ItemGroup>
 
-  <!-- WinForms is only used (fully-qualified) for the tray NotifyIcon; drop its
-       global usings so WPF type names (Brush, Button, Application, ...) aren't ambiguous. -->
-  <ItemGroup>
-    <Using Remove="System.Windows.Forms" />
-    <Using Remove="System.Drawing" />
-  </ItemGroup>
+  <!--
+    The WindowsDesktop runtime pack is monolithic: a self-contained publish ships
+    WinForms whether or not the app references it (UseWindowsForms only drops the
+    compile-time reference), and WPF apps can't be trimmed. Rodent's only WinForms
+    use was the tray icon, now plain Win32, so these ~23 MB are never loaded —
+    verified with Process.Modules on a full session. Drop them from the publish.
+  -->
+  <Target Name="DropUnusedWinForms" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="$([System.String]::Copy('%(Filename)').StartsWith('System.Windows.Forms'))
+                                     Or '%(Filename)' == 'System.Drawing.Common'
+                                     Or '%(Filename)' == 'System.Drawing.Design'
+                                     Or '%(Filename)' == 'Accessibility'" />
+    </ItemGroup>
+  </Target>
 
 </Project>
