@@ -62,7 +62,12 @@ public partial class App : Application
 
         // Setup runs windowed but never starts the engine: no HID handles, no hooks.
         if (Options.Uninstall) { RunSetup(SetupMode.Uninstall); return; }
-        if (Options.Install) { RunSetup(SetupMode.Install); return; }
+        if (Options.Install)
+        {
+            if (!EnsureRuntimeForInstall()) { Quitting = true; Shutdown(3); return; }
+            RunSetup(SetupMode.Install);
+            return;
+        }
 
         // Single instance: a second launch would install a second mouse hook
         // (rules firing twice) and a second tray icon. Surface the first instead.
@@ -108,6 +113,10 @@ public partial class App : Application
         if (Options.Portable || Options.Tray || Installer.IsInstalled || Installer.RunningFromInstall)
             return true;
 
+        // Don't offer an install that would produce an app which only starts from
+        // this shell (see RuntimeCheck) — say so and let the user run in place.
+        if (!EnsureRuntimeForInstall()) return true;
+
         Log.Info("not installed — showing the first-run setup prompt");
         var dlg = new InstallWindow(SetupMode.FirstRun);
         dlg.ShowDialog();
@@ -127,6 +136,41 @@ public partial class App : Application
                 Shutdown();
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Installing is only sound when the runtime is installed for the whole
+    /// machine; otherwise the installed copy would start from here and nowhere
+    /// else. Warn, offer the download page, and don't install.
+    /// </summary>
+    private bool EnsureRuntimeForInstall()
+    {
+        if (RuntimeCheck.IsDesktopRuntimeInstalled(out string? found))
+        {
+            Log.Info($"desktop runtime {found} found — install can proceed");
+            return true;
+        }
+
+        Log.Warn($"no machine-wide .NET Desktop Runtime {RuntimeCheck.RequiredMajor} " +
+                 $"(highest seen: {found ?? "none"}) — not installing");
+        var answer = MessageBox.Show(
+            $"Rodent needs the Microsoft .NET Desktop Runtime {RuntimeCheck.RequiredMajor} " +
+            "(x64), and it isn't installed for this PC.\n\n" +
+            "Rodent has not been installed. Install the runtime, then run this again.\n\n" +
+            "Open the download page now?",
+            "Rodent — .NET Desktop Runtime required",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+        if (answer == MessageBoxResult.Yes)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                    RuntimeCheck.DownloadUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex) { Log.Exception(ex, "opening the runtime download page"); }
+        }
+        return false;
     }
 
     private void RunSetup(SetupMode mode)

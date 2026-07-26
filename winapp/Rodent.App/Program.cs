@@ -19,6 +19,7 @@ public static class Program
         Log.Info($"Rodent {App.VersionTag} — args: {(args.Length == 0 ? "(none)" : string.Join(' ', args))}");
         Log.Debug($"exe: {Environment.ProcessPath}");
         Log.Debug($"os: {Environment.OSVersion} clr: {Environment.Version}");
+        Setup.RuntimeCheck.LogState();
 
         int? code = CliRunner.Run(options);
         if (code.HasValue)

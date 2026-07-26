@@ -23,7 +23,15 @@ internal static class CliRunner
         }
 
         if (o.Help) { ConsoleHost.Out(CliOptions.HelpText); ConsoleHost.Finish(); return 0; }
-        if (o.Version) { ConsoleHost.Out($"Rodent {App.VersionTag}"); ConsoleHost.Finish(); return 0; }
+        if (o.Version)
+        {
+            RuntimeCheck.IsDesktopRuntimeInstalled(out string? runtime);
+            ConsoleHost.Out($"Rodent {App.VersionTag}\n" +
+                            $"running on .NET {Environment.Version}\n" +
+                            $"desktop runtime (machine-wide): {runtime ?? "none"}");
+            ConsoleHost.Finish();
+            return 0;
+        }
         if (o.ShowLogPath) { ConsoleHost.Out(LogPathReport()); ConsoleHost.Finish(); return 0; }
         if (o.ListDevices) return ListDevices();
 
@@ -111,6 +119,18 @@ internal static class CliRunner
 
     private static int SilentInstall(CliOptions o)
     {
+        // Same rule as the GUI: never install against a runtime only this shell
+        // can see (see RuntimeCheck). Exit 3 = prerequisite missing.
+        if (!RuntimeCheck.IsDesktopRuntimeInstalled(out string? found))
+        {
+            ConsoleHost.Error(
+                $"Microsoft .NET Desktop Runtime {RuntimeCheck.RequiredMajor} (x64) is not installed for this PC " +
+                $"(highest found: {found ?? "none"}). Nothing was installed.");
+            ConsoleHost.Error(RuntimeCheck.DownloadUrl);
+            ConsoleHost.Finish();
+            return 3;
+        }
+
         try
         {
             Installer.Install(o.Startup ?? false, o.DesktopShortcut, s => ConsoleHost.Out("  " + s));

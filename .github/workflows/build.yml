@@ -17,12 +17,12 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      # Framework-dependent (needs .NET Desktop Runtime 8 x64) — see release.yml.
       - name: Publish single-file exe
         run: >
           dotnet publish winapp/Rodent.App/Rodent.App.csproj
-          -c Release -r win-x64 --self-contained
+          -c Release -r win-x64 --self-contained false
           -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
 
       - uses: actions/upload-artifact@v4

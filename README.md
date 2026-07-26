@@ -18,6 +18,11 @@ no background bloat: one small WPF app that talks to the mouse directly.
 
 ## Install
 
+**Requires the [Microsoft .NET Desktop Runtime 8][runtime] (x64)** — one shared
+install, and it keeps Rodent's download at ~4 MB instead of ~120 MB. If it is
+missing, Windows says so when you run the exe, and Rodent refuses to install
+itself rather than leaving you with an app that won't start.
+
 The download is a single exe that installs itself — there is no separate setup
 package. Run it and it offers to copy itself to
 `%LOCALAPPDATA%\Programs\Rodent`, add a Start menu entry, register an
@@ -137,6 +142,7 @@ single-file) copy installs too — setup copies the whole output folder in that
 case.
 
 [Releases]: https://github.com/ctnkyaumt/Rodent/releases
+[runtime]: https://dotnet.microsoft.com/download/dotnet/8.0/runtime?runtime=windowsdesktop
 
 ## Credits
 

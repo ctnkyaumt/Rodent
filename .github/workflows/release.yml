@@ -28,16 +28,16 @@ jobs:
           if ($ver.Split(".").Count -eq 2) { $ver = "$ver.0" }  # v0.9 -> 0.9.0
           "version=$ver" >> $env:GITHUB_OUTPUT
 
-      # No EnableCompressionInSingleFile: a compressed bundle is decompressed into
-      # memory at every start, which cost ~80 MB of RAM for the whole session on a
-      # tray app that runs all day. Uncompressed pages are mapped from the file
-      # instead — bigger download, roughly half the memory.
+      # Framework-dependent: ~4 MB instead of ~120 MB. Self-contained meant
+      # shipping all of WPF and the runtime, which cannot be trimmed for WPF, and
+      # compressing that bundle traded ~80 MB of RAM for the download size. The
+      # app needs the .NET Desktop Runtime 8 (x64): the apphost says so if it is
+      # missing, and Rodent refuses to install itself without one (RuntimeCheck).
       - name: Publish single-file exe
         run: >
           dotnet publish winapp/Rodent.App/Rodent.App.csproj
-          -c Release -r win-x64 --self-contained
+          -c Release -r win-x64 --self-contained false
           -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ steps.v.outputs.version }}
           -o publish
 
