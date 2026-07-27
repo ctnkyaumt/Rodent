@@ -110,20 +110,29 @@ public partial class MacroEditor : Window
         }
         if (_items.Count == 0)
             StepsList.Children.Add(new TextBlock { Text = "No actions yet — add text, a key combo, or a delay.", Foreground = (Brush)FindResource("Muted"), FontSize = 12, Margin = new Thickness(6) });
+        // A rebuild mid-recording (deleting an item) must not lose the live banner.
+        if (_recBanner != null) StepsList.Children.Insert(0, _recBanner);
     }
 
     // ---- live keystroke + mouse-click recording (G HUB's "record keystrokes") ----
     private Rodent.Core.Automation.LowLevelKeyboardHook? _recHook;
     private Rodent.Core.Automation.LowLevelMouseHook? _recMouse;
     private List<Macro.Step>? _recSteps;
+    private List<(int x, int y)>? _recAt;    // where each step happened (clicks only)
     private byte _recMods;
+    private System.Windows.Threading.DispatcherTimer? _recTimer;
+    private TextBlock? _recBanner;
+
+    private static readonly (int x, int y) NoPoint = (int.MinValue, int.MinValue);
 
     private void Record_Click(object sender, RoutedEventArgs e)
     {
         if (_recHook != null) { StopRecording(); return; }
 
         var steps = new List<Macro.Step>();
+        var at = new List<(int x, int y)>();
         _recSteps = steps;
+        _recAt = at;
         _recMods = 0;
         _recHook = new Rodent.Core.Automation.LowLevelKeyboardHook();
         _recHook.OnKey += (vk, scan, extended, down) =>
@@ -133,26 +142,52 @@ public partial class MacroEditor : Window
             // stored as the US character on that key (a comma) and replay wrong.
             byte mod = Macro.ScanToModifier(scan, extended);
             if (mod == 0) mod = Macro.VkToModifier(vk);
-            if (mod != 0) { if (down) _recMods |= mod; else _recMods &= (byte)~mod; return; }
             byte hid = Macro.ScanToHid(scan, extended);
             if (hid == 0) hid = Macro.VkToHid(vk);
+
+            if (mod != 0)
+            {
+                // A modifier is recorded twice over: as a key in its own right, so
+                // holding or tapping Shift alone lands in the macro, AND folded into
+                // the modifier byte of the keys pressed while it is held, so Ctrl+C
+                // still encodes as one onboard action. Belt and braces: the chip
+                // ignores a modifier usage in the key field (the fold is what makes
+                // combos work there) and the player honours whichever it sees.
+                if (down && (_recMods & mod) != 0) return;   // keyboard auto-repeat
+                _recMods = down ? (byte)(_recMods | mod) : (byte)(_recMods & ~mod);
+                if (hid == 0) hid = Macro.VkToModifierHid(vk);
+                if (hid == 0) return;
+                lock (steps)
+                {
+                    steps.Add(new Macro.Step(down ? Macro.Kind.KeyDown : Macro.Kind.KeyUp, 0, hid));
+                    at.Add(NoPoint);
+                }
+                return;
+            }
+
             if (hid == 0) return;
-            lock (steps) steps.Add(new Macro.Step(down ? Macro.Kind.KeyDown : Macro.Kind.KeyUp, _recMods, hid));
+            lock (steps)
+            {
+                steps.Add(new Macro.Step(down ? Macro.Kind.KeyDown : Macro.Kind.KeyUp, _recMods, hid));
+                at.Add(NoPoint);
+            }
         };
         _recHook.Start();
 
-        // Editor bounds are checked with raw Win32 from the hook thread: a
-        // Dispatcher.Invoke here would block the hook callback on the UI thread,
-        // and a slow callback gets the whole hook silently removed by Windows
-        // (LowLevelHooksTimeout) — which showed up as "clicks don't record".
-        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        // Clicks are taken everywhere, with the screen point kept alongside: the
+        // click that ends the recording (on Save, or anywhere else in this window)
+        // is trimmed afterwards instead of filtering the whole window out, which is
+        // what made "record a click" look broken. Nothing here touches the UI —
+        // a Dispatcher.Invoke from the hook thread would block the callback, and a
+        // slow callback gets the hook silently removed by Windows.
         _recMouse = new Rodent.Core.Automation.LowLevelMouseHook();
         _recMouse.OnButton += (mask, down, x, y) =>
         {
-            // Clicks on the editor itself (add/remove buttons…) are UI, not macro.
-            if (GetWindowRect(hwnd, out RECT r) && x >= r.Left && x <= r.Right && y >= r.Top && y <= r.Bottom)
-                return;
-            lock (steps) steps.Add(new Macro.Step(down ? Macro.Kind.MouseDown : Macro.Kind.MouseUp, 0, (byte)mask));
+            lock (steps)
+            {
+                steps.Add(new Macro.Step(down ? Macro.Kind.MouseDown : Macro.Kind.MouseUp, 0, (byte)mask));
+                at.Add((x, y));
+            }
         };
         _recMouse.Start();
 
@@ -163,6 +198,38 @@ public partial class MacroEditor : Window
         RecordBtn.Content = "■ Stop recording (hover here)";
         // Stop on HOVER so the stopping click never lands in the recording.
         RecordBtn.MouseEnter += StopOnHover;
+        ShowRecordingBanner();
+    }
+
+    /// <summary>Live "what have I captured so far" line, refreshed off the UI thread's timer.</summary>
+    private void ShowRecordingBanner()
+    {
+        _recBanner = new TextBlock
+        {
+            Foreground = (Brush)FindResource("Accent"), FontSize = 12,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6),
+        };
+        Refresh();                       // puts the banner above the existing actions
+        _recTimer = new System.Windows.Threading.DispatcherTimer
+        { Interval = TimeSpan.FromMilliseconds(200) };
+        _recTimer.Tick += (_, _) => UpdateBanner();
+        _recTimer.Start();
+        UpdateBanner();
+    }
+
+    private void UpdateBanner()
+    {
+        var steps = _recSteps;
+        if (_recBanner == null || steps == null) return;
+        int keys, clicks;
+        lock (steps)
+        {
+            keys = steps.Count(s => s.Kind == Macro.Kind.KeyDown);
+            clicks = steps.Count(s => s.Kind == Macro.Kind.MouseDown);
+        }
+        _recBanner.Text = $"● Recording — {keys} keystroke(s), {clicks} click(s).\n" +
+            "Keys (Shift and the other modifiers included) and clicks are captured anywhere on screen. " +
+            "Move the mouse over “Stop recording” to finish — the click that stops it is dropped.";
     }
 
     private void StopOnHover(object sender, System.Windows.Input.MouseEventArgs e) => StopRecording();
@@ -176,10 +243,22 @@ public partial class MacroEditor : Window
         _recMouse?.Stop();
         _recMouse?.Dispose();
         _recMouse = null;
+        _recTimer?.Stop();
+        _recTimer = null;
+        _recBanner = null;
         RecordBtn.Content = "● Record keys + clicks";
         var steps = _recSteps ?? new List<Macro.Step>();
+        var at = _recAt ?? new List<(int x, int y)>();
         _recSteps = null;
-        if (steps.Count == 0) return;
+        _recAt = null;
+        TrimStoppingClick(steps, at);
+        if (steps.Count == 0)
+        {
+            Refresh();
+            Dialogs.Info(this, "Nothing was recorded.\n\nPress the keys and click where you want them replayed — " +
+                "the recorder takes them anywhere on screen. Clicks inside this window that end the recording are dropped.");
+            return;
+        }
         int keys = steps.Count(s => s.Kind == Macro.Kind.KeyDown);
         int clicks = steps.Count(s => s.Kind == Macro.Kind.MouseDown);
         string desc = "Recorded " + string.Join(", ",
@@ -189,6 +268,25 @@ public partial class MacroEditor : Window
         Refresh();
     }
 
+    /// <summary>
+    /// Drop the trailing clicks that landed on the editor window — the press on
+    /// Save (or Cancel, or the Record button) that ended the recording is UI, not
+    /// part of the macro. Only the tail is trimmed: a deliberate click on this
+    /// window earlier in the sequence is kept.
+    /// </summary>
+    private void TrimStoppingClick(List<Macro.Step> steps, List<(int x, int y)> at)
+    {
+        if (!GetWindowRect(new System.Windows.Interop.WindowInteropHelper(this).Handle, out RECT r)) return;
+        for (int i = Math.Min(steps.Count, at.Count) - 1; i >= 0; i--)
+        {
+            if (steps[i].Kind != Macro.Kind.MouseDown && steps[i].Kind != Macro.Kind.MouseUp) break;
+            var (x, y) = at[i];
+            if (x < r.Left || x > r.Right || y < r.Top || y > r.Bottom) break;
+            steps.RemoveAt(i);
+            at.RemoveAt(i);
+        }
+    }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // Alt+F4 while recording lands here — treat it as "stop", not "close".
@@ -196,7 +294,13 @@ public partial class MacroEditor : Window
         base.OnClosing(e);
     }
 
-    protected override void OnClosed(EventArgs e) { _recHook?.Dispose(); _recMouse?.Dispose(); base.OnClosed(e); }
+    protected override void OnClosed(EventArgs e)
+    {
+        _recTimer?.Stop();
+        _recHook?.Dispose();
+        _recMouse?.Dispose();
+        base.OnClosed(e);
+    }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct RECT { public int Left; public int Top; public int Right; public int Bottom; }

@@ -298,6 +298,19 @@ public static class Macro
         _ => 0,
     };
 
+    /// <summary>
+    /// HID usage of a modifier KEY itself (0xE0-0xE7), for macros that press or
+    /// hold a bare Shift/Ctrl/Alt/Win. 0 when the virtual key isn't a modifier.
+    /// </summary>
+    public static byte VkToModifierHid(int vk) => vk switch
+    {
+        0x11 or 0xA2 => 0xE0, 0xA3 => 0xE4,     // Ctrl (left / right)
+        0x10 or 0xA0 => 0xE1, 0xA1 => 0xE5,     // Shift
+        0x12 or 0xA4 => 0xE2, 0xA5 => 0xE6,     // Alt
+        0x5B => 0xE3, 0x5C => 0xE7,             // Win
+        _ => 0,
+    };
+
     /// <summary>Modifier bit for a virtual-key, or 0 if it isn't a modifier.</summary>
     public static byte VkToModifier(int vk) => vk switch
     {
