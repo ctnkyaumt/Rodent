@@ -3,12 +3,13 @@ using System.Runtime.InteropServices;
 namespace Rodent.Core.Automation;
 
 /// <summary>
-/// Whether Rodent can act on the app in front of it. Windows refuses a
-/// medium-integrity process both the keyboard events destined for an elevated
-/// window and any SendInput aimed at it, so every per-app binding silently does
-/// nothing while such an app has focus (lighting still follows, because reading
-/// the foreground window needs no rights) — the "assignments don't work in the
-/// game, but the LEDs change" symptom.
+/// Whether Rodent can act on the app in front of it. Windows refuses a lower
+/// integrity process both the keyboard events destined for a higher one and any
+/// SendInput aimed at it, so bindings silently do nothing there (lighting still
+/// follows, because reading the foreground window needs no rights) — the
+/// "assignments don't work in the game, but the LEDs change" symptom. Rodent runs
+/// elevated (app.manifest) so ordinary elevated apps are reachable; this stays as
+/// the diagnostic for the rest (SYSTEM-level or protected processes).
 /// </summary>
 public static class Elevation
 {
@@ -79,27 +80,6 @@ public static class Elevation
         }
         catch { return SECURITY_MANDATORY_MEDIUM; }
         finally { Marshal.FreeHGlobal(buf); }
-    }
-
-    /// <summary>
-    /// Relaunch this exe elevated (UAC prompt) and report whether the new process
-    /// started — the caller shuts itself down on success.
-    /// </summary>
-    public static bool RestartElevated(string? arguments = null)
-    {
-        try
-        {
-            string exe = Environment.ProcessPath ?? "";
-            if (exe.Length == 0) return false;
-            var psi = new System.Diagnostics.ProcessStartInfo(exe)
-            {
-                UseShellExecute = true,
-                Verb = "runas",                       // triggers the UAC prompt
-                Arguments = arguments ?? "",
-            };
-            return System.Diagnostics.Process.Start(psi) != null;
-        }
-        catch { return false; }                        // user declined the prompt
     }
 
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;

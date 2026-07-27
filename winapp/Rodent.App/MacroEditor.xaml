@@ -111,8 +111,8 @@
     <!-- Options + add buttons -->
     <DockPanel Grid.Row="3" Margin="0,16,0,8">
       <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
-        <CheckBox x:Name="StdDelay" IsChecked="True" Content="50ms between actions" Foreground="{StaticResource Text}"/>
-        <CheckBox x:Name="ShowMovement" Margin="0,4,0,0" Content="Show key movement (↓ / ↑)"
+        <CheckBox x:Name="StdDelay" IsChecked="True" Content="50 ms between actions" Foreground="{StaticResource Text}"/>
+        <CheckBox x:Name="ShowMovement" Margin="0,8,0,0" Content="Show key movement (↓ / ↑)"
                   Foreground="{StaticResource Text}" Click="ShowMovement_Click"/>
       </StackPanel>
       <StackPanel Orientation="Horizontal">

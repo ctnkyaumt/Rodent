@@ -692,40 +692,13 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() =>
             {
                 CurrentAppLabel.Text = $"Active app: {app}";
-                ShowElevatedBanner(app);
                 ApplyProfileLighting(app);
             });
         CurrentAppLabel.Text = $"Active app: {AppInstance.Automation.CurrentApp}";
-        ShowElevatedBanner(AppInstance.Automation.CurrentApp);
         _armSync = true;
         ArmedCheck.IsChecked = AppInstance.Profiles.Enabled;
         _armSync = false;
         RefreshProfilesList();
-    }
-
-    /// <summary>
-    /// Warn when the app in front runs elevated: Windows keeps its key events away
-    /// from our hook and refuses our injected input, so the side buttons do nothing
-    /// there — while lighting, which needs no rights, keeps working and makes it
-    /// look like only "some" of Rodent is broken.
-    /// </summary>
-    private void ShowElevatedBanner(string app)
-    {
-        bool blocked = AppInstance.Automation.ForegroundOutOfReach && app.Length > 0;
-        ElevatedBanner.Visibility = blocked ? Visibility.Visible : Visibility.Collapsed;
-        if (blocked)
-            ElevatedText.Text = $"{app}.exe runs as administrator and Rodent doesn't, so Windows blocks " +
-                "the side buttons there (lighting still follows — it needs no rights). Restart Rodent as " +
-                "administrator to make its assignments work in that app.";
-    }
-
-    private void RestartElevated_Click(object sender, RoutedEventArgs e)
-    {
-        // The elevated copy waits for this one to let go of the mutex and the HID
-        // handles before it starts — otherwise it would bounce off single-instance.
-        int pid = Environment.ProcessId;
-        if (Rodent.Core.Automation.Elevation.RestartElevated($"--after {pid}"))
-            Application.Current.Shutdown();
     }
 
     public void RefreshProfilesList()

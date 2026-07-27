@@ -80,9 +80,12 @@ public sealed class ForegroundWatcher : IDisposable
             if (app.Length == 0 || app == _current) return;
             _current = app;
         }
-        // Elevation is a property of the app, not of the switch: sample it here so
-        // the UI can say why nothing happens in that app.
-        CurrentAppOutOfReach = !Elevation.IsElevated && Elevation.ProcessOutOfReach(pid);
+        // Integrity is a property of the app, not of the switch: sample it here, and
+        // log it — it is the one reason bindings can do nothing while lighting works.
+        CurrentAppOutOfReach = Elevation.ProcessOutOfReach(pid);
+        if (CurrentAppOutOfReach)
+            Rodent.Core.Diagnostics.Log.Warn($"{app} runs at a higher integrity level than Rodent — " +
+                "Windows will hide its key events from us and block anything we inject");
         AppChanged?.Invoke(app);
     }
 

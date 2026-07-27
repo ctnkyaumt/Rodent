@@ -295,19 +295,6 @@
                            Text="Each profile remaps the side buttons (4–8) for one program; the fallback profile covers everything else. Button assignments are edited on the Assignments tab via the profile dropdown. Enabling rewrites the side buttons to signal keys (F13–F17) — the original mapping is backed up and written back when you disable."/>
                 <TextBlock x:Name="CurrentAppLabel" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,14"/>
 
-                <!-- Elevated foreground app: Windows blocks both our hook and our
-                     injected input there, so every binding silently does nothing. -->
-                <Border x:Name="ElevatedBanner" Visibility="Collapsed" Background="#3A2A12" CornerRadius="8"
-                        Padding="14,10" Margin="0,0,0,14">
-                  <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="ElevatedText" Grid.Column="0" Foreground="#F0C070" FontSize="12"
-                               TextWrapping="Wrap" VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" Content="Restart as admin" Width="140" Margin="12,0,0,0"
-                            VerticalAlignment="Center" Click="RestartElevated_Click"/>
-                  </Grid>
-                </Border>
-
                 <Border Style="{StaticResource CardStyle}">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

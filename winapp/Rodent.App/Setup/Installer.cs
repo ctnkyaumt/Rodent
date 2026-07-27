@@ -201,22 +201,116 @@ internal static class Installer
     {
         get
         {
+            if (RunSchtasks($"/Query /TN \"{TaskName}\"") == 0) return true;
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
-                return key?.GetValue(RunValueName) != null;
+                return key?.GetValue(RunValueName) != null;     // pre-task installs
             }
             catch { return false; }
         }
     }
 
-    /// <summary>Point the Run entry at the installed exe when there is one.</summary>
+    /// <summary>
+    /// Start with Windows, via a scheduled task that runs with the highest
+    /// privileges. Rodent needs to be elevated to work in apps that are (see
+    /// app.manifest), and Windows silently skips Run-key entries for an app that
+    /// asks for elevation — so the task replaces that entry, and any leftover one
+    /// is cleaned up. Falls back to the Run key only if the task can't be made.
+    /// </summary>
     public static void SetStartup(bool enabled)
     {
-        using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath);
-        if (!enabled) { key.DeleteValue(RunValueName, throwOnMissingValue: false); return; }
+        RunSchtasks($"/Delete /F /TN \"{TaskName}\"");
+        using (var key = Registry.CurrentUser.CreateSubKey(RunKeyPath))
+            key.DeleteValue(RunValueName, throwOnMissingValue: false);
+        if (!enabled) return;
+
         string exe = IsInstalled ? InstalledExe : Environment.ProcessPath!;
-        key.SetValue(RunValueName, $"\"{exe}\" --tray");
+        if (CreateStartupTask(exe)) return;
+
+        Log.Warn("couldn't register the startup task — falling back to the Run key " +
+                 "(Windows may skip it because Rodent asks for elevation)");
+        using var run = Registry.CurrentUser.CreateSubKey(RunKeyPath);
+        run.SetValue(RunValueName, $"\"{exe}\" --tray");
+    }
+
+    private const string TaskName = "Rodent";
+
+    /// <summary>
+    /// Register the logon task from XML: an InteractiveToken principal needs no
+    /// stored password, and HighestAvailable is what makes the elevated start work.
+    /// </summary>
+    private static bool CreateStartupTask(string exe)
+    {
+        string user = Environment.UserDomainName + "\\" + Environment.UserName;
+        string xml = $"""
+            <?xml version="1.0" encoding="UTF-16"?>
+            <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+              <RegistrationInfo>
+                <Author>{Publisher}</Author>
+                <Description>Start Rodent in the notification area at logon.</Description>
+              </RegistrationInfo>
+              <Triggers>
+                <LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId></LogonTrigger>
+              </Triggers>
+              <Principals>
+                <Principal id="Author">
+                  <UserId>{user}</UserId>
+                  <LogonType>InteractiveToken</LogonType>
+                  <RunLevel>HighestAvailable</RunLevel>
+                </Principal>
+              </Principals>
+              <Settings>
+                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+                <AllowHardTerminate>true</AllowHardTerminate>
+                <StartWhenAvailable>false</StartWhenAvailable>
+                <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+                <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>
+                <AllowStartOnDemand>true</AllowStartOnDemand>
+                <Enabled>true</Enabled>
+                <Hidden>false</Hidden>
+                <RunOnlyIfIdle>false</RunOnlyIfIdle>
+                <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+                <Priority>7</Priority>
+              </Settings>
+              <Actions Context="Author">
+                <Exec>
+                  <Command>{System.Security.SecurityElement.Escape(exe)}</Command>
+                  <Arguments>--tray</Arguments>
+                </Exec>
+              </Actions>
+            </Task>
+            """;
+
+        string path = Path.Combine(Path.GetTempPath(), "rodent-startup.xml");
+        try
+        {
+            File.WriteAllText(path, xml, System.Text.Encoding.Unicode);   // schtasks wants UTF-16
+            return RunSchtasks($"/Create /F /TN \"{TaskName}\" /XML \"{path}\"") == 0;
+        }
+        catch (Exception ex) { Log.Exception(ex, "creating the startup task"); return false; }
+        finally { try { File.Delete(path); } catch { } }
+    }
+
+    /// <summary>Run schtasks.exe silently and return its exit code (-1 if it won't start).</summary>
+    private static int RunSchtasks(string args)
+    {
+        try
+        {
+            using var p = Process.Start(new ProcessStartInfo("schtasks.exe", args)
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            if (p == null) return -1;
+            p.WaitForExit(15_000);
+            return p.HasExited ? p.ExitCode : -1;
+        }
+        catch (Exception ex) { Log.Exception(ex, "running schtasks"); return -1; }
     }
 
     /// <summary>Close other Rodent processes so the exe can be replaced/removed.</summary>
