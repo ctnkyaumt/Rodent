@@ -114,8 +114,7 @@ public static class Dialogs
         };
         var hint = new TextBlock
         {
-            Text = "e.g. hold Ctrl+Shift and tap T. The last combination pressed wins — " +
-                   "press only Shift (or Ctrl/Alt/Win) for the modifier by itself.",
+            Text = "e.g. hold Ctrl+Shift and tap T. The last combination pressed wins.",
             Foreground = Res<Brush>("Muted"), FontSize = 12,
             Margin = new Thickness(16, 0, 16, 0), TextWrapping = TextWrapping.Wrap, MaxWidth = 340,
         };
@@ -155,13 +154,7 @@ public static class Dialogs
             int vk = KeyInterop.VirtualKeyFromKey(k);
             if (Macro.VkToModifier(vk) != 0)
             {
-                // A modifier on its own is a valid combo (hold Shift, press OK) —
-                // stored as the modifier key itself, overwritten if a key follows.
-                mods = 0;
-                key = Macro.VkToModifierHid(vk);
-                label = Macro.KeyName(key).ToLowerInvariant();
-                display.Text = ModsLabel(CurrentMods()) + "…  (or OK for that key alone)";
-                ok.IsEnabled = key != 0;
+                display.Text = ModsLabel(CurrentMods()) + "…";      // show held modifiers live
                 return;
             }
             byte hid = Macro.VkToHid(vk);
