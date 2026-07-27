@@ -51,11 +51,37 @@ public static class InputInjector
         }
     };
 
-    private static INPUT KeyboardVk(ushort vk, bool down) => new()
+    /// <summary>
+    /// One key event. Sent by SCAN CODE whenever the layout has one for the key:
+    /// games read the keyboard through DirectInput/raw input, which only ever sees
+    /// scan codes — a virtual-key-only event is invisible to them (arrow keys bound
+    /// to a mouse button did nothing in GTA IV while macros, which always injected
+    /// scan codes, worked). Keys with no scan code (media, F13+) fall back to the
+    /// virtual key.
+    /// </summary>
+    private static INPUT KeyboardVk(ushort vk, bool down)
     {
-        type = INPUT_KEYBOARD,
-        U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = down ? 0u : KEYEVENTF_KEYUP } }
-    };
+        // Browser/media/volume keys stay virtual: the shell handles them by virtual
+        // key, and no game needs them as scan codes.
+        if (vk is >= 0xA6 and <= 0xB7)
+            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = down ? 0u : KEYEVENTF_KEYUP } } };
+
+        uint mapped = MapVirtualKey(vk, MAPVK_VK_TO_VSC_EX);
+        ushort scan = (ushort)(mapped & 0xFF);
+        // The high byte carries the 0xE0/0xE1 prefix of an extended key (arrows,
+        // Home/End/PageUp/Down, Insert/Delete, right Ctrl/Alt, numpad Enter and /).
+        bool extended = (mapped & 0xFF00) is 0xE000 or 0xE100;
+        uint flags = down ? 0u : KEYEVENTF_KEYUP;
+        if (scan == 0)
+            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = flags } } };
+
+        flags |= KEYEVENTF_SCANCODE | (extended ? KEYEVENTF_EXTENDEDKEY : 0u);
+        return new INPUT
+        {
+            type = INPUT_KEYBOARD,
+            U = new InputUnion { ki = new KEYBDINPUT { wVk = 0, wScan = scan, dwFlags = flags } }
+        };
+    }
 
     /// <summary>Tap a single virtual key (used for media / volume keys).</summary>
     public static void TapKey(ushort vk) =>
@@ -218,4 +244,9 @@ public static class InputInjector
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    private const uint MAPVK_VK_TO_VSC_EX = 4;
+
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint code, uint mapType);
 }
