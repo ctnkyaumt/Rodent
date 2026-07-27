@@ -29,8 +29,13 @@ public static class Macro
         _ => 0,
     };
 
-    /// <summary>Playback behavior (mirrors G HUB's macro type selector).</summary>
-    public enum RepeatMode { Once, WhileHeld, Toggle, Sequence }
+    /// <summary>
+    /// Playback behavior (mirrors G HUB's macro type selector). HoldToggle is
+    /// software-only: the press half runs and everything stays DOWN until the
+    /// button is pressed again — a sprint toggle, not a key spammer. Values are
+    /// appended, never reordered: profiles.json stores the integer.
+    /// </summary>
+    public enum RepeatMode { Once, WhileHeld, Toggle, Sequence, HoldToggle }
 
     // HID modifier bitmask
     public const byte ModCtrl = 0x01, ModShift = 0x02, ModAlt = 0x04, ModGui = 0x08;

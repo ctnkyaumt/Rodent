@@ -33,6 +33,7 @@ public sealed class AutomationService : IDisposable
     // The one active repeat loop (null = none running).
     private readonly object _repeatLock = new();
     private CancellationTokenSource? _repeatCts;
+    private MacroPlayer.Held? _hold;                   // keys a hold toggle is keeping down
     private int _heldRepeatButton = -1;               // button whose while-held loop is running
     private int _sniperButton = -1;                    // button holding DPI Shift (sniper)
 
@@ -42,7 +43,8 @@ public sealed class AutomationService : IDisposable
     public Func<Rodent.Core.Devices.IDpiDevice?>? DeviceProvider;
 
     public string CurrentApp => _watcher.CurrentApp;
-    public bool RepeatActive { get { lock (_repeatLock) return _repeatCts != null; } }
+    /// <summary>A repeat loop or a hold toggle is running (both stop on Esc).</summary>
+    public bool RepeatActive { get { lock (_repeatLock) return _repeatCts != null || _hold != null; } }
     public event Action<string>? AppChanged;
     public event Action<int, ButtonBinding>? BindingFired; // (button, binding)
     public event Action<bool>? RepeatStateChanged;         // true = started, false = stopped
@@ -50,7 +52,8 @@ public sealed class AutomationService : IDisposable
     public AutomationService(ProfilesConfig? profiles = null)
     {
         _profiles = profiles ?? ProfilesConfig.Load();
-        _watcher.AppChanged += a => AppChanged?.Invoke(a);
+        // Alt-tabbing out of the game must not leave Shift held in the next app.
+        _watcher.AppChanged += a => { ReleaseHold(); AppChanged?.Invoke(a); };
         _hook.OnKeyDecide = HandleKey;
     }
 
@@ -113,6 +116,9 @@ public sealed class AutomationService : IDisposable
                     case Macro.RepeatMode.Toggle:
                         ToggleRepeat(ct => MacroPlayer.Play(steps, ct));
                         break;
+                    case Macro.RepeatMode.HoldToggle:
+                        ToggleHold(steps);
+                        break;
                     case Macro.RepeatMode.WhileHeld:
                         // Runs while the side button is held; the up event stops it.
                         StopRepeat();
@@ -135,6 +141,34 @@ public sealed class AutomationService : IDisposable
             });
         }
         return true;                                        // signal keys are always ours
+    }
+
+    // ---- hold toggle: press to hold the keys down, press again to let go ----
+    private void ToggleHold(IReadOnlyList<Macro.Step> steps)
+    {
+        lock (_repeatLock)
+        {
+            if (_hold != null) { var h = _hold; _hold = null; Task.Run(() => { MacroPlayer.Release(h); RepeatStateChanged?.Invoke(false); }); return; }
+        }
+        Task.Run(() =>
+        {
+            MacroPlayer.Held held;
+            try { held = MacroPlayer.PlayHold(steps); }
+            catch { return; }
+            if (!held.Any) return;                          // nothing to hold: no state to keep
+            lock (_repeatLock) _hold = held;
+            RepeatStateChanged?.Invoke(true);
+        });
+    }
+
+    /// <summary>Let go of a hold toggle, if one is active (Esc, app switch, disarm).</summary>
+    public void ReleaseHold()
+    {
+        MacroPlayer.Held? h;
+        lock (_repeatLock) { h = _hold; _hold = null; }
+        if (h == null) return;
+        try { MacroPlayer.Release(h); } catch { /* injection failed — nothing else to do */ }
+        RepeatStateChanged?.Invoke(false);
     }
 
     // ---- repeat loops: toggle (press again / Esc / 30s) and while-held ----
@@ -161,6 +195,7 @@ public sealed class AutomationService : IDisposable
 
     public void StopRepeat()
     {
+        ReleaseHold();                                      // Esc/disarm also lets go of a hold
         lock (_repeatLock)
         {
             if (_repeatCts == null) return;

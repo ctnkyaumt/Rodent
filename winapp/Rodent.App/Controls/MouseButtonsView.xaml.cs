@@ -287,9 +287,9 @@ public partial class MouseButtonsView : UserControl
 
         void AssignOnboard(string name, IReadOnlyList<Macro.Step> steps, Macro.RepeatMode repeat)
         {
-            // The onboard chip can never cancel a Toggle loop (proven dead end) —
-            // downgrade a library Toggle macro to run-once on the hardware profile.
-            if (repeat == Macro.RepeatMode.Toggle) repeat = Macro.RepeatMode.Once;
+            // The onboard chip can never cancel a Toggle loop (proven dead end), and
+            // a hold toggle needs a host to let go again — both run once on hardware.
+            if (repeat is Macro.RepeatMode.Toggle or Macro.RepeatMode.HoldToggle) repeat = Macro.RepeatMode.Once;
             if (vm.MacroDev == null)
             {
                 ShowToast($"{vm.Name} can't store macros on the device yet.");
@@ -627,8 +627,8 @@ public partial class MouseButtonsView : UserControl
                 return typed.Count == 0 ? default : (null, typed, Macro.RepeatMode.Once);
 
             case BindingKind.Macro when b.MacroSteps is { Count: > 0 }:
-                // The chip can't cancel a Toggle loop — downgrade to run-once.
-                var rep = (Macro.RepeatMode)b.MacroRepeat == Macro.RepeatMode.Toggle
+                // The chip can't cancel a Toggle loop, nor let go of a hold — run once.
+                var rep = (Macro.RepeatMode)b.MacroRepeat is Macro.RepeatMode.Toggle or Macro.RepeatMode.HoldToggle
                     ? Macro.RepeatMode.Once : (Macro.RepeatMode)b.MacroRepeat;
                 return (null, b.MacroSteps, rep);
 

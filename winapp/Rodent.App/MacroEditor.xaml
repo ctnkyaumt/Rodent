@@ -1,7 +1,7 @@
 <Window x:Class="Rodent.App.MacroEditor"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Macro Editor" Height="590" Width="720"
+        Title="Macro Editor" Height="660" Width="760"
         WindowStartupLocation="CenterOwner" Background="{StaticResource Bg}"
         WindowStyle="None" ResizeMode="NoResize">
   <Window.Resources>
@@ -99,6 +99,10 @@
              toggle is a per-app SOFTWARE action instead. -->
         <RadioButton x:Name="TypeToggle" Style="{StaticResource TypeCard}" GroupName="mt" Tag="⊙"
                      Content="Toggle — see note below" IsEnabled="False" Opacity="0.5"/>
+        <!-- Hold: the press half runs and stays down (sprint), the next press
+             lets go. Software-only, like Toggle — the chip can't let go. -->
+        <RadioButton x:Name="TypeHold" Style="{StaticResource TypeCard}" GroupName="mt" Tag="⤓"
+                     Content="Hold Until Pressed Again" IsEnabled="False" Opacity="0.5"/>
       </StackPanel>
       <TextBlock x:Name="ToggleNote" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="4,6,0,0" MaxWidth="560"
                  Text="Toggle (press to start, press to stop) can't live on the mouse — its chip won't cancel a running macro. For a real toggle, use a per-app profile: Assignments tab → pick a profile → click a side button → “Create macro” with type Toggle. That runs in Rodent and always stops (also Esc, also auto-stops)."/>
@@ -106,8 +110,11 @@
 
     <!-- Options + add buttons -->
     <DockPanel Grid.Row="3" Margin="0,16,0,8">
-      <CheckBox x:Name="StdDelay" DockPanel.Dock="Right" IsChecked="True" VerticalAlignment="Center"
-                Content="50ms between actions" Foreground="{StaticResource Text}"/>
+      <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+        <CheckBox x:Name="StdDelay" IsChecked="True" Content="50ms between actions" Foreground="{StaticResource Text}"/>
+        <CheckBox x:Name="ShowMovement" Margin="0,4,0,0" Content="Show key movement (↓ / ↑)"
+                  Foreground="{StaticResource Text}" Click="ShowMovement_Click"/>
+      </StackPanel>
       <StackPanel Orientation="Horizontal">
         <Button x:Name="RecordBtn" Style="{StaticResource AddBtn}" Content="● Record keys + clicks" Focusable="False" Click="Record_Click"/>
         <Button Style="{StaticResource AddBtn}" Content="+ Text" Click="AddText_Click"/>
@@ -116,11 +123,15 @@
       </StackPanel>
     </DockPanel>
 
-    <!-- Action list -->
+    <!-- The sequence itself: one chip per action, click a chip to move or delete it -->
     <Border Grid.Row="4" Background="{StaticResource Panel}" CornerRadius="8" Padding="8">
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel x:Name="StepsList"/>
-      </ScrollViewer>
+      <DockPanel>
+        <TextBlock x:Name="RecHint" DockPanel.Dock="Top" Visibility="Collapsed" Margin="4,2,4,8"
+                   Foreground="{StaticResource Accent}" FontSize="12" TextWrapping="Wrap"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <WrapPanel x:Name="StepsList"/>
+        </ScrollViewer>
+      </DockPanel>
     </Border>
 
     <!-- Buttons -->
