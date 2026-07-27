@@ -40,7 +40,8 @@ public partial class MacroEditor : Window
             ToggleNote.Text = "This macro runs in Rodent (software), so all types work. Toggle: press to start " +
                               "repeating the sequence, press again to stop. Hold Until Pressed Again: the keys go " +
                               "DOWN and stay down (sprint) until you press the button again — Esc and switching " +
-                              "app also let go. Repeat While Held repeats while the side button is held.";
+                              "app also let go; it saves the presses only, no releases and no delays. " +
+                              "Repeat While Held repeats while the side button is held.";
         }
         _software = software;
         RefreshSaved();
@@ -488,22 +489,33 @@ public partial class MacroEditor : Window
         if (_recHook != null) StopRecording();
         if (_steps.Count == 0) { Dialogs.Info(this, "Add at least one action."); return; }
 
-        // Recorded and typed sequences carry no timing of their own; played back
-        // with zero gaps, games and some apps drop keys. Space them out unless the
-        // user has put an explicit delay there already.
-        var steps = new List<Macro.Step>(_steps.Count * 2);
-        bool std = StdDelay.IsChecked == true;
-        for (int i = 0; i < _steps.Count; i++)
-        {
-            if (std && i > 0 && _steps[i].Kind != Macro.Kind.Delay && _steps[i - 1].Kind != Macro.Kind.Delay)
-                steps.Add(new Macro.Step(Macro.Kind.Delay, DelayMs: Macro.StandardDelayMs));
-            steps.Add(_steps[i]);
-        }
-
         Repeat = TypeHeld.IsChecked == true ? Macro.RepeatMode.WhileHeld
                : TypeToggle.IsChecked == true ? Macro.RepeatMode.Toggle
                : TypeHold.IsChecked == true ? Macro.RepeatMode.HoldToggle
                : Macro.RepeatMode.Once;
+
+        var steps = new List<Macro.Step>(_steps.Count * 2);
+        if (Repeat == Macro.RepeatMode.HoldToggle)
+        {
+            // A hold is the presses and nothing else: the releases are what the
+            // second press does, and spacing delays would only stall the hold.
+            // Save what actually runs, so reopening the macro shows the truth.
+            steps.AddRange(_steps.Where(s => s.Kind is Macro.Kind.KeyDown or Macro.Kind.MouseDown));
+            if (steps.Count == 0) { Dialogs.Info(this, "A hold macro needs at least one key or button press."); return; }
+        }
+        else
+        {
+            // Recorded and typed sequences carry no timing of their own; played back
+            // with zero gaps, games and some apps drop keys. Space them out unless the
+            // user has put an explicit delay there already.
+            bool std = StdDelay.IsChecked == true;
+            for (int i = 0; i < _steps.Count; i++)
+            {
+                if (std && i > 0 && _steps[i].Kind != Macro.Kind.Delay && _steps[i - 1].Kind != Macro.Kind.Delay)
+                    steps.Add(new Macro.Step(Macro.Kind.Delay, DelayMs: Macro.StandardDelayMs));
+                steps.Add(_steps[i]);
+            }
+        }
         Result = steps;
         // Every save also lands in the library, so assigning elsewhere later
         // doesn't require rebuilding the macro.

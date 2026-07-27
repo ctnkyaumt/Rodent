@@ -43,6 +43,13 @@ public sealed class AutomationService : IDisposable
     public Func<Rodent.Core.Devices.IDpiDevice?>? DeviceProvider;
 
     public string CurrentApp => _watcher.CurrentApp;
+
+    /// <summary>
+    /// The app in front runs elevated and Rodent doesn't: Windows hides its key
+    /// events from our hook and blocks anything we inject, so bindings do nothing
+    /// there until Rodent is restarted as administrator.
+    /// </summary>
+    public bool ForegroundOutOfReach => _watcher.CurrentAppOutOfReach;
     /// <summary>A repeat loop or a hold toggle is running (both stop on Esc).</summary>
     public bool RepeatActive { get { lock (_repeatLock) return _repeatCts != null || _hold != null; } }
     public event Action<string>? AppChanged;

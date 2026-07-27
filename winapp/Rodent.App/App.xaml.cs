@@ -69,6 +69,10 @@ public partial class App : Application
             return;
         }
 
+        // Relaunched as administrator: the copy that started us still owns the
+        // single-instance mutex and the HID handles, so let it finish exiting.
+        if (Options.WaitForPid > 0) WaitForExit(Options.WaitForPid);
+
         // Single instance: a second launch would install a second mouse hook
         // (rules firing twice) and a second tray icon. Surface the first instead.
         ShowWindowMessage = RegisterWindowMessage("RodentShowWindow");
@@ -102,6 +106,18 @@ public partial class App : Application
             new System.Windows.Interop.WindowInteropHelper(win).EnsureHandle();
         else
             win.Show();
+    }
+
+    /// <summary>Block until that process is gone (or 10 s, so a stuck one can't hang us).</summary>
+    private static void WaitForExit(int pid)
+    {
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById(pid);
+            Log.Info($"waiting for the previous instance (pid {pid}) to exit");
+            p.WaitForExit(10_000);
+        }
+        catch { /* already gone — nothing to wait for */ }
     }
 
     /// <summary>
@@ -230,6 +246,15 @@ public partial class App : Application
             new Uri("pack://application:,,,/Assets/rodent.ico"));
         _tray.Activated += ShowMain;
         _tray.AddMenuItem("Open Rodent", ShowMain);
+        // Games and other apps that run as administrator hide their key events from
+        // our hook and refuse our injected input — only an elevated Rodent works there.
+        if (!Elevation.IsElevated)
+            _tray.AddMenuItem("Restart as administrator", () =>
+            {
+                if (!Elevation.RestartElevated($"--after {Environment.ProcessId}")) return;
+                Quitting = true;
+                Shutdown();
+            });
         _tray.AddMenuItem("Quit", () => { Quitting = true; Shutdown(); });
     }
 

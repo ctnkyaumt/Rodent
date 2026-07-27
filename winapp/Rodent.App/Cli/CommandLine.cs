@@ -18,6 +18,9 @@ public sealed class CliOptions
     public bool Portable;
     /// <summary>No dialogs — for scripted install/uninstall.</summary>
     public bool Silent;
+    /// <summary>Wait for this process id to exit first (the copy that relaunched us
+    /// as administrator still holds the single-instance mutex and the HID handles).</summary>
+    public int WaitForPid;
 
     // install/uninstall modifiers
     public bool? Startup;          // null = ask (GUI) / default (silent)
@@ -64,6 +67,14 @@ public sealed class CliOptions
                 case "--tray": case "--minimized": o.Tray = true; break;
                 case "--portable": case "--no-install": o.Portable = true; break;
                 case "-s": case "--silent": case "--quiet": o.Silent = true; break;
+
+                case "--after":
+                {
+                    string? v = Value();
+                    if (v == null || !int.TryParse(v, out o.WaitForPid))
+                        o.Errors.Add("--after needs a process id");
+                    break;
+                }
 
                 case "--startup":
                     o.Startup = !HasInline() || IsTruthy(inline);
@@ -126,6 +137,8 @@ public sealed class CliOptions
           --tray               Start hidden in the notification area
           --portable           Run in place; never prompt to install
           --silent, -s         No dialogs (for scripted install/uninstall)
+          --after <pid>        Wait for that process to exit first (used by
+                               "Restart as admin")
 
         INSTALL OPTIONS
           --startup[=yes|no]   Register (or not) start-with-Windows

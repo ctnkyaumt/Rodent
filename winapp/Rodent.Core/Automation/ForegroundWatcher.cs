@@ -24,6 +24,13 @@ public sealed class ForegroundWatcher : IDisposable
 
     public string CurrentApp => _current;
 
+    /// <summary>
+    /// The foreground app runs at a higher integrity level than Rodent, so none of
+    /// its key events reach us and nothing we inject reaches it. Sampled per app
+    /// switch, alongside the name.
+    /// </summary>
+    public bool CurrentAppOutOfReach { get; private set; }
+
     public ForegroundWatcher()
     {
         _proc = OnWinEvent;
@@ -56,7 +63,7 @@ public sealed class ForegroundWatcher : IDisposable
     /// </summary>
     private void PollTick()
     {
-        string app = ProcessNameOf(GetForegroundWindow());
+        string app = ProcessNameOf(GetForegroundWindow(), out _);
         bool stable = app.Length > 0 && app == _pollSample;
         _pollSample = app;
         if (stable) Update(GetForegroundWindow());
@@ -64,7 +71,7 @@ public sealed class ForegroundWatcher : IDisposable
 
     private void Update(IntPtr hwnd)
     {
-        string app = ProcessNameOf(hwnd);
+        string app = ProcessNameOf(hwnd, out int pid);
         // Compare-and-set under a lock (hook runs on the UI thread, the poll on a
         // pool thread); the event fires OUTSIDE it — a handler hopping threads
         // while the other path waits on the lock would deadlock.
@@ -73,16 +80,21 @@ public sealed class ForegroundWatcher : IDisposable
             if (app.Length == 0 || app == _current) return;
             _current = app;
         }
+        // Elevation is a property of the app, not of the switch: sample it here so
+        // the UI can say why nothing happens in that app.
+        CurrentAppOutOfReach = !Elevation.IsElevated && Elevation.ProcessOutOfReach(pid);
         AppChanged?.Invoke(app);
     }
 
-    private static string ProcessNameOf(IntPtr hwnd)
+    private static string ProcessNameOf(IntPtr hwnd, out int pid)
     {
+        pid = 0;
         if (hwnd == IntPtr.Zero) return "";
-        GetWindowThreadProcessId(hwnd, out uint pid);
+        GetWindowThreadProcessId(hwnd, out uint id);
+        pid = (int)id;
         try
         {
-            using var p = Process.GetProcessById((int)pid);
+            using var p = Process.GetProcessById(pid);
             return p.ProcessName.ToLowerInvariant();
         }
         catch { return ""; }
