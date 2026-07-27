@@ -546,12 +546,15 @@ public static class OnboardProfiles
         if ((modifiers & 0x02) != 0) parts.Add("Shift");
         if ((modifiers & 0x04) != 0) parts.Add("Alt");
         if ((modifiers & 0x08) != 0) parts.Add("Win");
-        parts.Add(KeyName(keycode));
-        return string.Join("+", parts);
+        // A modifier-only action (e.g. binding Left Shift) has no key code.
+        string key = KeyName(keycode);
+        if (key.Length > 0) parts.Add(key);
+        return parts.Count > 0 ? string.Join("+", parts) : "No action";
     }
 
     private static string KeyName(int k)
     {
+        if (k == 0) return "";
         if (k >= 0x04 && k <= 0x1D) return ((char)('A' + (k - 0x04))).ToString();
         if (k >= 0x1E && k <= 0x26) return ((char)('1' + (k - 0x1E))).ToString();
         return k switch
@@ -572,6 +575,10 @@ public static class OnboardProfiles
             0x49 => "Insert", 0x4A => "Home", 0x4B => "PgUp", 0x4C => "Delete",
             0x4D => "End", 0x4E => "PgDn",
             0x4F => "Right", 0x50 => "Left", 0x51 => "Down", 0x52 => "Up",
+            0x53 => "Num Lock", 0x54 => "Num /", 0x55 => "Num *", 0x56 => "Num -",
+            0x57 => "Num +", 0x58 => "Num Enter", 0x62 => "Num 0", 0x63 => "Num .",
+            >= 0x59 and <= 0x61 => $"Num {1 + k - 0x59}",
+            0x65 => "Menu",
             >= 0x68 and <= 0x73 => $"F{13 + k - 0x68}",
             _ => $"Key 0x{k:X2}",
         };

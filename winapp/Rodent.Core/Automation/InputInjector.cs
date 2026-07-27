@@ -79,8 +79,10 @@ public static class InputInjector
     /// <summary>Press/release one key by virtual key (fallback for keys without a scan code).</summary>
     public static void KeyVk(ushort vk, bool down) => Send(new List<INPUT> { KeyboardVk(vk, down) });
 
-    /// <summary>Known injectable mouse buttons for profile bindings.</summary>
-    public static readonly string[] MouseButtons = { "Left Click", "Right Click", "Middle Click", "Back", "Forward" };
+    /// <summary>Known injectable mouse buttons for profile bindings. Double/Triple
+    /// Click are software-only (the chip would need a macro for them).</summary>
+    public static readonly string[] MouseButtons =
+        { "Left Click", "Right Click", "Middle Click", "Back", "Forward", "Double Click", "Triple Click" };
 
     /// <summary>"ctrl+shift+t" → (virtual key, modifier virtual keys) for SendInput. Null if unparsable.</summary>
     public static (ushort vk, ushort[] mods)? ParseChord(string s)
@@ -128,6 +130,21 @@ public static class InputInjector
     /// <summary>Inject a full mouse button click (down+up) by catalog name.</summary>
     public static void ClickMouse(string name)
     {
+        // Multi-clicks go out as one batch: Windows measures the gap between the
+        // downs, and zero is comfortably inside the double-click time.
+        int repeat = name switch { "Double Click" => 2, "Triple Click" => 3, _ => 1 };
+        if (repeat > 1)
+        {
+            var clicks = new List<INPUT>(repeat * 2);
+            for (int i = 0; i < repeat; i++)
+            {
+                clicks.Add(Mouse(MOUSEEVENTF_LEFTDOWN, 0));
+                clicks.Add(Mouse(MOUSEEVENTF_LEFTUP, 0));
+            }
+            Send(clicks);
+            return;
+        }
+
         (uint down, uint up, uint data) = name switch
         {
             "Left Click" => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0u),

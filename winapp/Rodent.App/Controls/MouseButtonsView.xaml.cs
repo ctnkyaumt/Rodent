@@ -272,6 +272,16 @@ public partial class MouseButtonsView : UserControl
             menu.Items.Add(item);
         }
 
+        // Every keyboard key the chip can send, as a plain MODIFIER_AND_KEY action.
+        menu.Items.Add(BuildKeyboardMenu(
+            vk => KeyCatalog.OnboardBytes(vk) != null,
+            (name, vk) => ApplyFlash(vm, index, () =>
+            {
+                var (ok, newLabel) = vm.ButtonDev!.RemapButton(index, KeyCatalog.OnboardBytes(vk)!);
+                if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, index, null); // no longer a macro
+                return (ok, ok ? newLabel : null, ok ? null : "Couldn't write to the device. If G HUB is running, quit it and try again.");
+            })));
+
         menu.Items.Add(new Separator());
         var macros = new MenuItem { Header = "Macros" };
 
@@ -377,6 +387,13 @@ public partial class MouseButtonsView : UserControl
         }
         menu.Items.Add(new Separator());
 
+        // Any single keyboard key, grouped (letters, numpad, modifiers, …).
+        menu.Items.Add(BuildKeyboardMenu(_ => true, (name, vk) => Set(new ButtonBinding
+        {
+            Kind = BindingKind.KeyChord, Text = name, VirtualKey = vk,
+        })));
+        menu.Items.Add(new Separator());
+
         // Key chords, typed text and toggle-repeat all live in the macro editor now
         // ("Create macro…") — the loose prompt items duplicated it.
         var launch = new MenuItem { Header = "Launch app…" };
@@ -471,6 +488,31 @@ public partial class MouseButtonsView : UserControl
         return menu;
     }
 
+    /// <summary>
+    /// The "Keyboard" submenu: every key in <see cref="KeyCatalog"/>, one submenu
+    /// per group. <paramref name="supported"/> filters keys the target can't take
+    /// (the onboard chip has no usage code for a few), and <paramref name="assign"/>
+    /// receives the display name and virtual key of the chosen one.
+    /// </summary>
+    private static MenuItem BuildKeyboardMenu(Func<ushort, bool> supported, Action<string, ushort> assign)
+    {
+        var root = new MenuItem { Header = "Keyboard" };
+        foreach (var g in KeyCatalog.Groups)
+        {
+            var group = new MenuItem { Header = g.Name };
+            foreach (var k in g.Keys)
+            {
+                if (!supported(k.Vk)) continue;
+                var mi = new MenuItem { Header = k.Name };
+                var key = k;
+                mi.Click += (_, _) => assign(key.Name, key.Vk);
+                group.Items.Add(mi);
+            }
+            if (group.Items.Count > 0) root.Items.Add(group);
+        }
+        return root;
+    }
+
     // G HUB's "Commands" list: (category, display name, chord). Executed as
     // plain key chords; the name is what shows on the button label.
     private static readonly (string Cat, string Name, string Chord)[] CommandCatalog =
@@ -515,6 +557,28 @@ public partial class MouseButtonsView : UserControl
         ("Editing", "Zoom Reset", "ctrl+0"),
         ("Navigation", "Go Back", "alt+left"),
         ("Navigation", "Go Forward", "alt+right"),
+        ("Navigation", "Refresh", "f5"),
+        ("Navigation", "Hard Refresh", "ctrl+f5"),
+        ("Navigation", "Next Tab", "ctrl+tab"),
+        ("Navigation", "Previous Tab", "ctrl+shift+tab"),
+        ("Navigation", "Reopen Closed Tab", "ctrl+shift+t"),
+        ("Navigation", "Address Bar", "ctrl+l"),
+        ("Navigation", "Find on Page", "ctrl+f"),
+        ("Navigation", "Find Next", "f3"),
+        ("Navigation", "Find Previous", "shift+f3"),
+        ("Navigation", "Scroll to Top", "ctrl+home"),
+        ("Navigation", "Scroll to Bottom", "ctrl+end"),
+        ("Navigation", "Page Up", "pageup"),
+        ("Navigation", "Page Down", "pagedown"),
+        ("Navigation", "Up One Folder", "alt+up"),
+        ("Navigation", "Full Screen", "f11"),
+        ("Navigation", "Developer Tools", "f12"),
+        ("Navigation", "Bookmark Page", "ctrl+d"),
+        ("Navigation", "History", "ctrl+h"),
+        ("Navigation", "Downloads", "ctrl+j"),
+        ("Navigation", "Private Window", "ctrl+shift+n"),
+        ("Navigation", "Print", "ctrl+p"),
+        ("Navigation", "Rename (Explorer)", "f2"),
     };
 
     // ===== Copy a software profile into the mouse flash ========================
@@ -529,6 +593,18 @@ public partial class MouseButtonsView : UserControl
     {
         switch (b.Kind)
         {
+            // The chip has no multi-click action — express it as a short macro.
+            case BindingKind.MouseClick when b.Text is "Double Click" or "Triple Click":
+                var clicks = new List<Macro.Step>();
+                for (int i = 0; i < (b.Text == "Double Click" ? 2 : 3); i++)
+                {
+                    clicks.Add(new Macro.Step(Macro.Kind.MouseDown, Key: 0x01));
+                    clicks.Add(new Macro.Step(Macro.Kind.Delay, DelayMs: 20));
+                    clicks.Add(new Macro.Step(Macro.Kind.MouseUp, Key: 0x01));
+                    clicks.Add(new Macro.Step(Macro.Kind.Delay, DelayMs: 20));
+                }
+                return (null, clicks, Macro.RepeatMode.Once);
+
             case BindingKind.MouseClick:
                 int mask = b.Text switch
                 {
@@ -539,9 +615,11 @@ public partial class MouseButtonsView : UserControl
 
             case BindingKind.KeyChord:
                 byte hid = Macro.VkToHid(b.VirtualKey);
-                if (hid == 0) return default;
                 byte mods = 0;
                 foreach (var vk in b.Modifiers) mods |= Macro.VkToModifier(vk);
+                // A bare modifier key (Left Shift, …) is sent as the modifier alone.
+                if (hid == 0) mods |= Macro.VkToModifier(b.VirtualKey);
+                if (hid == 0 && mods == 0) return default;
                 return (new byte[] { 0x80, 0x02, mods, hid }, null, default);
 
             case BindingKind.TypeText:
