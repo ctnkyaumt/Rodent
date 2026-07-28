@@ -117,6 +117,13 @@ public sealed class AutomationService : IDisposable
         _signalHeld[button] = true;
 
         var binding = _profiles.Resolve(_watcher.CurrentApp, button);
+        // The signal key arriving and the binding resolving are the two things that
+        // can't be seen from outside; log both, so "nothing happened in the game"
+        // can be told apart from "the game ignored what we sent".
+        Rodent.Core.Diagnostics.Log.Info(binding == null
+            ? $"button {button} (F{13 + button - ProfilesConfig.FirstButton}) pressed in '{_watcher.CurrentApp}' — no binding"
+            : $"button {button} (F{13 + button - ProfilesConfig.FirstButton}) pressed in '{_watcher.CurrentApp}' — " +
+              $"{binding.Kind}: {binding.Describe()}");
         if (binding != null)
         {
             if (binding.Kind == BindingKind.Dpi)

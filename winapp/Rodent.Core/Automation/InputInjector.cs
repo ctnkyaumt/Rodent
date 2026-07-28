@@ -98,6 +98,8 @@ public static class InputInjector
             return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = flags } } };
 
         flags |= KEYEVENTF_SCANCODE | (extended ? KEYEVENTF_EXTENDEDKEY : 0u);
+        Rodent.Core.Diagnostics.Log.Debug(
+            $"key vk 0x{vk:X2} {(down ? "down" : "up")} as scan 0x{scan:X2}{(extended ? " ext" : "")}");
         return new INPUT
         {
             type = INPUT_KEYBOARD,
