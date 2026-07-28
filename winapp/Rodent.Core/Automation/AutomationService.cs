@@ -30,6 +30,9 @@ public sealed class AutomationService : IDisposable
     // Suppress keyboard auto-repeat while a signal key is held.
     private readonly bool[] _signalHeld = new bool[ProfilesConfig.LastButton + 1];
 
+    // Key/click a button is currently holding down (null = nothing held).
+    private readonly ButtonBinding?[] _pressed = new ButtonBinding?[ProfilesConfig.LastButton + 1];
+
     // The one active repeat loop (null = none running).
     private readonly object _repeatLock = new();
     private CancellationTokenSource? _repeatCts;
@@ -67,11 +70,11 @@ public sealed class AutomationService : IDisposable
     public void SetProfiles(ProfilesConfig profiles)
     {
         _profiles = profiles;
-        if (!profiles.Enabled) StopRepeat();                // disarming kills any loop
+        if (!profiles.Enabled) { StopRepeat(); ReleaseAllButtonKeys(); }   // disarming kills any loop
     }
 
     public void Start() { _watcher.Start(); _hook.Start(); }
-    public void Stop() { StopRepeat(); _hook.Stop(); _watcher.Stop(); }
+    public void Stop() { StopRepeat(); ReleaseAllButtonKeys(); _hook.Stop(); _watcher.Stop(); }
 
     private bool HandleKey(int vk, bool down)
     {
@@ -81,8 +84,14 @@ public sealed class AutomationService : IDisposable
 
     private bool HandleKeyCore(int vk, bool down)
     {
-        // Esc is a universal panic stop for a runaway repeat — never swallowed.
-        if (down && vk == VK_ESCAPE && RepeatActive) { StopRepeat(); return false; }
+        // Esc is the universal panic stop: it kills a runaway repeat and lets go of
+        // anything a button is holding (in case its release was ever missed).
+        if (down && vk == VK_ESCAPE)
+        {
+            if (RepeatActive) StopRepeat();
+            ReleaseAllButtonKeys();
+            return false;                                   // never swallowed
+        }
 
         if (vk < VK_F13 || vk > VK_F13 + (ProfilesConfig.LastButton - ProfilesConfig.FirstButton))
             return false;                                   // not one of our signal keys
@@ -92,6 +101,8 @@ public sealed class AutomationService : IDisposable
         if (!down)
         {
             _signalHeld[button] = false;
+            ReleaseButtonKey(button);                       // remapped key/click follows the button
+
             if (_heldRepeatButton == button) { _heldRepeatButton = -1; StopRepeat(); }
             if (_sniperButton == button)
             {
@@ -141,6 +152,23 @@ public sealed class AutomationService : IDisposable
                         break;
                 }
             }
+            // A key or a click bound to a button IS that button while it is held:
+            // press on the way down, release on the way up. Tapping instead (down
+            // and up in the same instant) is invisible to anything sampling the
+            // keyboard per frame — every game — and made arrow keys look dead in
+            // GTA IV while macros, which take milliseconds, worked.
+            else if (binding.Kind == BindingKind.KeyChord)
+            {
+                _pressed[button] = binding;
+                InputInjector.KeyChordDown(binding.VirtualKey, binding.Modifiers);
+                Notify(button, binding);
+            }
+            else if (binding.Kind == BindingKind.MouseClick && InputInjector.MaskOf(binding.Text) is var m and > 0)
+            {
+                _pressed[button] = binding;
+                InputInjector.MouseButton(m, down: true);
+                Notify(button, binding);
+            }
             else Task.Run(() =>
             {
                 try { Execute(binding); } catch { /* never kill the worker */ }
@@ -148,6 +176,33 @@ public sealed class AutomationService : IDisposable
             });
         }
         return true;                                        // signal keys are always ours
+    }
+
+    /// <summary>Fire the UI event off the hook thread — handlers may hop to the UI.</summary>
+    private void Notify(int button, ButtonBinding binding) =>
+        Task.Run(() => { try { BindingFired?.Invoke(button, binding); } catch { } });
+
+    /// <summary>Let go of the key or click a button is holding down, if any.</summary>
+    private void ReleaseButtonKey(int button)
+    {
+        var binding = _pressed[button];
+        if (binding == null) return;
+        _pressed[button] = null;
+        try
+        {
+            if (binding.Kind == BindingKind.KeyChord)
+                InputInjector.KeyChordUp(binding.VirtualKey, binding.Modifiers);
+            else
+                InputInjector.MouseButton(InputInjector.MaskOf(binding.Text), down: false);
+        }
+        catch { /* injection failed — nothing else to do */ }
+    }
+
+    /// <summary>Release everything any button is holding (disarm, stop, panic).</summary>
+    private void ReleaseAllButtonKeys()
+    {
+        for (int b = ProfilesConfig.FirstButton; b <= ProfilesConfig.LastButton; b++)
+            ReleaseButtonKey(b);
     }
 
     // ---- hold toggle: press to hold the keys down, press again to let go ----
@@ -279,5 +334,5 @@ public sealed class AutomationService : IDisposable
         }
     }
 
-    public void Dispose() { StopRepeat(); _hook.Dispose(); _watcher.Dispose(); }
+    public void Dispose() { StopRepeat(); ReleaseAllButtonKeys(); _hook.Dispose(); _watcher.Dispose(); }
 }

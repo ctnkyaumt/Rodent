@@ -20,13 +20,35 @@ public static class InputInjector
         Send(inputs);
     }
 
+    /// <summary>
+    /// How long a tapped key stays down. A down and up in the same instant is
+    /// invisible to anything that samples the keyboard per frame instead of
+    /// reading the message queue — most games, including GTA IV — so a tap has to
+    /// last long enough to be seen by at least one frame.
+    /// </summary>
+    public const int TapMs = 45;
+
     /// <summary>Press a virtual-key chord (modifiers held around the key), e.g. Ctrl+C.</summary>
     public static void KeyChord(ushort virtualKey, params ushort[] modifiers)
+    {
+        KeyChordDown(virtualKey, modifiers);
+        Thread.Sleep(TapMs);
+        KeyChordUp(virtualKey, modifiers);
+    }
+
+    /// <summary>Press the chord and leave it down (a button-held remap).</summary>
+    public static void KeyChordDown(ushort virtualKey, params ushort[] modifiers)
     {
         var inputs = new List<INPUT>();
         foreach (var m in modifiers) inputs.Add(KeyboardVk(m, down: true));
         inputs.Add(KeyboardVk(virtualKey, down: true));
-        inputs.Add(KeyboardVk(virtualKey, down: false));
+        Send(inputs);
+    }
+
+    /// <summary>Release a chord left down by <see cref="KeyChordDown"/>.</summary>
+    public static void KeyChordUp(ushort virtualKey, params ushort[] modifiers)
+    {
+        var inputs = new List<INPUT> { KeyboardVk(virtualKey, down: false) };
         for (int i = modifiers.Length - 1; i >= 0; i--) inputs.Add(KeyboardVk(modifiers[i], down: false));
         Send(inputs);
     }
@@ -86,6 +108,13 @@ public static class InputInjector
     /// <summary>Tap a single virtual key (used for media / volume keys).</summary>
     public static void TapKey(ushort vk) =>
         Send(new List<INPUT> { KeyboardVk(vk, true), KeyboardVk(vk, false) });
+
+    /// <summary>Onboard button mask (1/2/4/8/16) for a catalog click name, 0 if none.</summary>
+    public static int MaskOf(string name) => name switch
+    {
+        "Left Click" => 0x01, "Right Click" => 0x02, "Middle Click" => 0x04,
+        "Back" => 0x08, "Forward" => 0x10, _ => 0,     // Double/Triple Click aren't holdable
+    };
 
     /// <summary>Press/release one key by scan code (layout-correct macro playback).</summary>
     public static void KeyScan(ushort scan, bool extended, bool down) => Send(new List<INPUT>
