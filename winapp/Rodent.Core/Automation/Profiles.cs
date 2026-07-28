@@ -85,6 +85,17 @@ public sealed class ProfilesConfig
     public List<AppProfile> Profiles { get; set; } = new();
     public Dictionary<int, string> HwBackup { get; set; } = new(); // button -> hex of original 4 bytes
 
+    /// <summary>
+    /// Buttons left on the mouse instead of being remapped to a signal key. Their
+    /// key comes from the device as a real HID report, which is the only kind some
+    /// games accept: GTA IV reads the keyboard through DirectInput and ignores
+    /// anything injected, so a host-side remap does nothing there no matter how it
+    /// is sent. Those buttons give up per-app behavior in exchange.
+    /// </summary>
+    public List<int> HardwareButtons { get; set; } = new();
+
+    public bool IsHardware(int button) => HardwareButtons.Contains(button);
+
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     public static string Path => System.IO.Path.Combine(

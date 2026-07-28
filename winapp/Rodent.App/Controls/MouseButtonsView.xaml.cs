@@ -179,8 +179,10 @@ public partial class MouseButtonsView : UserControl
 
             if (_profile == null)
             {
-                // Hardware profile. While armed, 4-8 belong to the signal keys.
-                bool locked = armed && btn.Index >= ProfilesConfig.FirstButton;
+                // Hardware profile. While armed, 4-8 belong to the signal keys —
+                // except the ones the user asked to keep on the mouse.
+                bool locked = armed && btn.Index >= ProfilesConfig.FirstButton
+                                    && !AppInstance.Profiles.IsHardware(btn.Index);
                 // A macro has no name on the device, only instructions — show the name
                 // the user gave it and keep the decoded contents as the tooltip.
                 string? macroName = btn.IsMacro ? MacroNames.Get(vm.VendorId, vm.ProductId, btn.Index) : null;
@@ -195,6 +197,15 @@ public partial class MouseButtonsView : UserControl
                 {
                     // 1-3 stay physical clicks — remapping Left Click per-app is a footgun.
                     DrawLabel(a, btn.Label, "Hardware click — edit in the Onboard profile", null);
+                }
+                else if (AppInstance.Profiles.IsHardware(btn.Index))
+                {
+                    // Kept on the mouse: the device sends the key itself, so it is
+                    // the same in every app — including games that ignore injected
+                    // input — and no profile can change it.
+                    DrawLabel(a, btn.Label + "  ⌨",
+                        $"{btn.Label} — kept on the mouse, so games that ignore injected keys still see it. " +
+                        "The same in every app.", BuildHardwareMenu(vm, btn.Index));
                 }
                 else
                 {
@@ -359,6 +370,59 @@ public partial class MouseButtonsView : UserControl
         });
     }
 
+    // ===== Buttons kept on the mouse ===========================================
+
+    /// <summary>
+    /// Write a key into the button's onboard action and take it out of the per-app
+    /// engine. Some games (GTA IV and other DirectInput titles) ignore injected
+    /// keystrokes entirely — a key the mouse sends itself is the only kind they see.
+    /// </summary>
+    private void KeepOnMouse(DeviceViewModel vm, int index, byte[] action) =>
+        ApplyFlash(vm, index, () =>
+        {
+            var (ok, error) = ProfileArmer.KeepOnMouse(vm.ButtonDev!, AppInstance.Profiles, index, action);
+            if (ok) MacroNames.Set(vm.VendorId, vm.ProductId, index, null);
+            AppInstance.Automation.SetProfiles(AppInstance.Profiles);
+            return (ok, null, error);
+        });
+
+    /// <summary>Menu for a button that is kept on the mouse.</summary>
+    private ContextMenu BuildHardwareMenu(DeviceViewModel vm, int index)
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(new MenuItem
+        {
+            Header = "On the mouse — the same key in every app", IsEnabled = false,
+        });
+        menu.Items.Add(new Separator());
+
+        var keys = BuildKeyboardMenu(vk => KeyCatalog.OnboardBytes(vk) != null,
+            (_, vk) => KeepOnMouse(vm, index, KeyCatalog.OnboardBytes(vk)!));
+        keys.Header = "Change the key";
+        menu.Items.Add(keys);
+
+        var clicks = new MenuItem { Header = "Change to a click" };
+        foreach (var act in OnboardProfiles.Catalog.Take(5))       // the five mouse buttons
+        {
+            var mi = new MenuItem { Header = act.Label };
+            var bytes = act.Bytes;
+            mi.Click += (_, _) => KeepOnMouse(vm, index, bytes);
+            clicks.Items.Add(mi);
+        }
+        menu.Items.Add(clicks);
+        menu.Items.Add(new Separator());
+
+        var back = new MenuItem { Header = "Give back to per-app profiles" };
+        back.Click += (_, _) => ApplyFlash(vm, index, () =>
+        {
+            var (ok, error) = ProfileArmer.GiveBackToProfiles(vm.ButtonDev!, AppInstance.Profiles, index);
+            AppInstance.Automation.SetProfiles(AppInstance.Profiles);
+            return (ok, null, error);
+        });
+        menu.Items.Add(back);
+        return menu;
+    }
+
     // ===== App profile (software) menu =========================================
 
     private ContextMenu BuildBindingMenu(AppProfile profile, int index)
@@ -392,6 +456,19 @@ public partial class MouseButtonsView : UserControl
         {
             Kind = BindingKind.KeyChord, Text = name, VirtualKey = vk,
         })));
+
+        // The same keys, but written into the mouse. A per-app key is injected by
+        // Rodent, and DirectInput games (GTA IV) ignore injected input no matter
+        // how it is sent; a key the mouse sends is a real HID report, so it always
+        // lands — at the cost of being the same key in every app.
+        var vmNow = _vm;
+        if (vmNow?.ButtonDev != null)
+        {
+            var onMouse = BuildKeyboardMenu(vk => KeyCatalog.OnboardBytes(vk) != null,
+                (_, vk) => KeepOnMouse(vmNow, index, KeyCatalog.OnboardBytes(vk)!));
+            onMouse.Header = "Keep on the mouse (works in every game)";
+            menu.Items.Add(onMouse);
+        }
         menu.Items.Add(new Separator());
 
         // Key chords, typed text and toggle-repeat all live in the macro editor now
