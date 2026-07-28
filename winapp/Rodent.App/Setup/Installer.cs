@@ -242,12 +242,17 @@ internal static class Installer
     /// </summary>
     private static bool CreateStartupTask(string exe)
     {
-        string user = Environment.UserDomainName + "\\" + Environment.UserName;
+        // Every value interpolated below is XML-escaped: a Windows account or
+        // machine name may legally contain '&', which would otherwise produce XML
+        // schtasks rejects — the task silently never gets created.
+        string user = System.Security.SecurityElement.Escape(
+            Environment.UserDomainName + "\\" + Environment.UserName);
+        string author = System.Security.SecurityElement.Escape(Publisher);
         string xml = $"""
             <?xml version="1.0" encoding="UTF-16"?>
             <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
               <RegistrationInfo>
-                <Author>{Publisher}</Author>
+                <Author>{author}</Author>
                 <Description>Start Rodent in the notification area at logon.</Description>
               </RegistrationInfo>
               <Triggers>

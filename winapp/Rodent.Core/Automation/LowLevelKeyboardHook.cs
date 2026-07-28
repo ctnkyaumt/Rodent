@@ -36,6 +36,12 @@ public sealed class LowLevelKeyboardHook : IDisposable
     {
         _threadId = GetCurrentThreadId();
         _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(null), 0);
+        // Nothing else reports this: without the hook the signal keys never reach
+        // the engine and every per-app binding is silently dead.
+        if (_hook == IntPtr.Zero)
+            Rodent.Core.Diagnostics.Log.Error(
+                $"SetWindowsHookEx(WH_KEYBOARD_LL) failed — Win32 error {Marshal.GetLastWin32Error()}; " +
+                "per-app bindings and macro recording will not work");
         while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) > 0) { TranslateMessage(ref msg); DispatchMessage(ref msg); }
         if (_hook != IntPtr.Zero) { UnhookWindowsHookEx(_hook); _hook = IntPtr.Zero; }
     }
@@ -50,9 +56,15 @@ public sealed class LowLevelKeyboardHook : IDisposable
             if (down || up)
             {
                 var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                OnKey?.Invoke((int)data.vkCode, data.scanCode, (data.flags & LLKHF_EXTENDED) != 0, down);
-                if (OnKeyDecide != null && OnKeyDecide((int)data.vkCode, down))
-                    return (IntPtr)1; // swallow
+                // Our own SendInput comes back through this hook. Acting on it made
+                // a binding or macro that sends Esc trigger the panic stop, and let
+                // a recording capture its own playback; skip anything we sent.
+                if (data.dwExtraInfo != InputInjector.InjectionTag)
+                {
+                    OnKey?.Invoke((int)data.vkCode, data.scanCode, (data.flags & LLKHF_EXTENDED) != 0, down);
+                    if (OnKeyDecide != null && OnKeyDecide((int)data.vkCode, down))
+                        return (IntPtr)1; // swallow
+                }
             }
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);

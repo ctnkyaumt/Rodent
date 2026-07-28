@@ -8,6 +8,16 @@ namespace Rodent.Core.Automation;
 /// </summary>
 public static class InputInjector
 {
+    /// <summary>
+    /// Stamped into dwExtraInfo of every event we inject, so our own low-level
+    /// hooks can tell Rodent's input apart from a real key. Without it a binding
+    /// that sends Esc (the Keyboard menu offers it, and "Open Task Manager" is
+    /// ctrl+shift+esc) came straight back through the hook and hit the panic-stop
+    /// path — killing the very repeat loop that was playing it. Only OUR events
+    /// carry the tag, so another remapper's injected keys still work normally.
+    /// </summary>
+    public static readonly IntPtr InjectionTag = new(0x52444E54); // 'RDNT'
+
     /// <summary>Type Unicode text (each char sent as a key-down/up with the Unicode flag).</summary>
     public static void TypeText(string text)
     {
@@ -57,7 +67,14 @@ public static class InputInjector
     {
         if (inputs.Count == 0) return;
         var arr = inputs.ToArray();
-        SendInput((uint)arr.Length, arr, Marshal.SizeOf<INPUT>());
+        uint sent = SendInput((uint)arr.Length, arr, Marshal.SizeOf<INPUT>());
+        if (sent == arr.Length) return;
+        // UIPI blocks injection into a higher-integrity foreground app (see
+        // Elevation). That is the "assignments do nothing in the game" symptom,
+        // and it is invisible without this line.
+        Rodent.Core.Diagnostics.Log.Warn(
+            $"SendInput delivered {sent}/{arr.Length} event(s) — Win32 error {Marshal.GetLastWin32Error()}; " +
+            "the foreground app is most likely blocking injected input");
     }
 
     private static INPUT KeyboardUnicode(char c, bool down) => new()
@@ -69,6 +86,7 @@ public static class InputInjector
             {
                 wScan = c,
                 dwFlags = KEYEVENTF_UNICODE | (down ? 0u : KEYEVENTF_KEYUP),
+                dwExtraInfo = InjectionTag,
             }
         }
     };
@@ -86,7 +104,7 @@ public static class InputInjector
         // Browser/media/volume keys stay virtual: the shell handles them by virtual
         // key, and no game needs them as scan codes.
         if (vk is >= 0xA6 and <= 0xB7)
-            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = down ? 0u : KEYEVENTF_KEYUP } } };
+            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = down ? 0u : KEYEVENTF_KEYUP, dwExtraInfo = InjectionTag } } };
 
         uint mapped = MapVirtualKey(vk, MAPVK_VK_TO_VSC_EX);
         ushort scan = (ushort)(mapped & 0xFF);
@@ -95,7 +113,7 @@ public static class InputInjector
         bool extended = (mapped & 0xFF00) is 0xE000 or 0xE100;
         uint flags = down ? 0u : KEYEVENTF_KEYUP;
         if (scan == 0)
-            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = flags } } };
+            return new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = flags, dwExtraInfo = InjectionTag } } };
 
         flags |= KEYEVENTF_SCANCODE | (extended ? KEYEVENTF_EXTENDEDKEY : 0u);
         Rodent.Core.Diagnostics.Log.Debug(
@@ -103,7 +121,7 @@ public static class InputInjector
         return new INPUT
         {
             type = INPUT_KEYBOARD,
-            U = new InputUnion { ki = new KEYBDINPUT { wVk = 0, wScan = scan, dwFlags = flags } }
+            U = new InputUnion { ki = new KEYBDINPUT { wVk = 0, wScan = scan, dwFlags = flags, dwExtraInfo = InjectionTag } }
         };
     }
 
@@ -129,6 +147,7 @@ public static class InputInjector
                 wScan = scan,
                 dwFlags = KEYEVENTF_SCANCODE | (extended ? KEYEVENTF_EXTENDEDKEY : 0u)
                                              | (down ? 0u : KEYEVENTF_KEYUP),
+                dwExtraInfo = InjectionTag,
             } }
         }
     });
@@ -234,7 +253,7 @@ public static class InputInjector
     private static INPUT Mouse(uint flags, uint data) => new()
     {
         type = INPUT_MOUSE,
-        U = new InputUnion { mi = new MOUSEINPUT { dwFlags = flags, mouseData = data } }
+        U = new InputUnion { mi = new MOUSEINPUT { dwFlags = flags, mouseData = data, dwExtraInfo = InjectionTag } }
     };
 
     /// <summary>Lock the workstation.</summary>

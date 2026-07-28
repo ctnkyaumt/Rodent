@@ -38,8 +38,9 @@ public static class MacroStore
 
     private static void Save(List<SavedMacro> macros)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        File.WriteAllText(Path, JsonSerializer.Serialize(macros, JsonOpts));
+        // Temp-then-swap, like profiles.json: a half-written macros.json loses the
+        // whole library, and nothing else holds a copy.
+        ProfilesConfig.AtomicWrite(Path, JsonSerializer.Serialize(macros, JsonOpts));
         _cache = macros;
     }
 

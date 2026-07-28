@@ -22,7 +22,11 @@ public static class FeatureId
 public sealed class FeatureTable
 {
     private readonly HidppTransport _t;
-    private readonly Dictionary<ushort, byte> _cache = new();
+
+    // Concurrent, not plain: a DPI binding resolves features on the injection
+    // thread while the UI is mid flash write on another. Two unsynchronised
+    // writes to a Dictionary can corrupt its buckets and hang the reader.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, byte> _cache = new();
 
     public FeatureTable(HidppTransport transport) => _t = transport;
 
@@ -37,6 +41,8 @@ public sealed class FeatureTable
         // ROOT.GetFeature(featureId) -> [featureIndex, featureType, featureVersion]
         byte[]? reply = _t.Request(0x00, 0x00, (byte)(featureId >> 8), (byte)(featureId & 0xFF));
         byte index = (reply != null && reply.Length >= 1) ? reply[0] : (byte)0;
+        // A racing probe of the same feature gets the same answer from the device,
+        // so whichever store lands first is correct.
         _cache[featureId] = index;
         return index;
     }

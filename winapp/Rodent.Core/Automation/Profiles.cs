@@ -101,10 +101,22 @@ public sealed class ProfilesConfig
         return new();
     }
 
-    public void Save()
+    /// <summary>
+    /// Write via a temp file and swap it in. HwBackup is the ONLY record of what
+    /// the side buttons did before arming — a crash or power loss during a plain
+    /// overwrite would leave a truncated file and no way to restore the mouse.
+    /// </summary>
+    public void Save() => AtomicWrite(Path, JsonSerializer.Serialize(this, JsonOpts));
+
+    internal static void AtomicWrite(string path, string contents)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        File.WriteAllText(Path, JsonSerializer.Serialize(this, JsonOpts));
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+        string tmp = path + ".tmp";
+        File.WriteAllText(tmp, contents);
+        // Move overwrites in one metadata operation; Replace additionally survives
+        // the target being locked, but needs it to exist.
+        if (File.Exists(path)) File.Replace(tmp, path, null, ignoreMetadataErrors: true);
+        else File.Move(tmp, path);
     }
 
     /// <summary>Fallback profile ("*"), created on demand.</summary>

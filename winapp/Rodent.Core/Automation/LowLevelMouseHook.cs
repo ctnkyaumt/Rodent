@@ -40,6 +40,10 @@ public sealed class LowLevelMouseHook : IDisposable
         if (nCode >= 0 && OnButton != null)
         {
             var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            // Skip clicks we injected ourselves — a recording must not capture the
+            // playback of the macro it is replacing.
+            if (data.dwExtraInfo == InputInjector.InjectionTag)
+                return CallNextHookEx(_hook, nCode, wParam, lParam);
             (int mask, bool down) = (int)wParam switch
             {
                 WM_LBUTTONDOWN => (0x01, true), WM_LBUTTONUP => (0x01, false),

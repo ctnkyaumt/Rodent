@@ -378,7 +378,7 @@ public sealed class LogiDevice : IDeviceDriver, IButtonDevice, IMacroDevice, ILi
         if (_features.Call(FeatureId.OnboardProfiles, 0x20) == null)
             return;
 
-        _Settings_Add(new ToggleSetting
+        Settings.Add(new ToggleSetting
         {
             Name = "onboard_profiles",
             Label = "Onboard Memory Profiles",
@@ -402,7 +402,7 @@ public sealed class LogiDevice : IDeviceDriver, IButtonDevice, IMacroDevice, ILi
         if (list.Count == 0)
             return;
 
-        _Settings_Add(new ChoiceSetting
+        Settings.Add(new ChoiceSetting
         {
             Name = "dpi",
             Label = "Sensitivity (DPI)",
@@ -482,7 +482,7 @@ public sealed class LogiDevice : IDeviceDriver, IButtonDevice, IMacroDevice, ILi
         if (choices.Count == 0)
             return;
 
-        _Settings_Add(new ChoiceSetting
+        Settings.Add(new ChoiceSetting
         {
             Name = "report_rate",
             Label = "Report Rate",
@@ -496,8 +496,6 @@ public sealed class LogiDevice : IDeviceDriver, IButtonDevice, IMacroDevice, ILi
             Write = v => _features.Call(FeatureId.ReportRate, 0x20, (byte)v),
         });
     }
-
-    private void _Settings_Add(Setting s) => Settings.Add(s);
 
     public void Dispose() => _transport.Dispose();
 }
