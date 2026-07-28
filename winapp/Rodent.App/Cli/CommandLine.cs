@@ -8,6 +8,8 @@ public sealed class CliOptions
     public bool Help;
     public bool Version;
     public bool ListDevices;
+    /// <summary>Print what the onboard memory holds (profile slots, sizes).</summary>
+    public bool OnboardInfo;
     public bool Install;
     public bool Uninstall;
     public bool ShowLogPath;
@@ -30,7 +32,7 @@ public sealed class CliOptions
     public bool Console;           // mirror the log to the terminal
 
     public List<string> Errors { get; } = new();
-    public bool WantsConsoleOnly => Help || Version || ListDevices || ShowLogPath;
+    public bool WantsConsoleOnly => Help || Version || ListDevices || ShowLogPath || OnboardInfo;
 
     public static CliOptions Parse(string[] args)
     {
@@ -57,6 +59,7 @@ public sealed class CliOptions
                 case "-h": case "-?": case "/?": case "--help": o.Help = true; break;
                 case "-v": case "--version": o.Version = true; break;
                 case "-l": case "--list": case "--list-devices": o.ListDevices = true; break;
+                case "--onboard-info": o.OnboardInfo = true; break;
                 case "--install": o.Install = true; break;
                 case "--uninstall": case "--remove": o.Uninstall = true; break;
                 case "--log-path": o.ShowLogPath = true; break;
@@ -118,6 +121,7 @@ public sealed class CliOptions
           --install            Install to %LOCALAPPDATA%\Programs\Rodent
           --uninstall          Remove Rodent from this PC
           --list, -l           Print detected devices and exit
+          --onboard-info       Print the onboard memory layout (profile slots)
           --log-path           Print the log file location and exit
           --version, -v        Print the version and exit
           --help, -h           Show this help

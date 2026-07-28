@@ -211,7 +211,11 @@ public partial class MouseButtonsView : UserControl
                 {
                     var binding = _profile.Buttons.TryGetValue(btn.Index, out var b) ? b : null;
                     string text = binding == null || binding.Kind == BindingKind.Default ? "Default" : binding.Describe();
-                    DrawLabel(a, text, null, BuildBindingMenu(_profile, btn.Index));
+                    string? tip = binding?.Kind == BindingKind.OnboardKey
+                        ? $"{binding.Text} is moved onto the mouse while this app is in front, so games " +
+                          "that ignore injected keys still see it, and taken off again afterwards."
+                        : null;
+                    DrawLabel(a, text, tip, BuildBindingMenu(_profile, btn.Index));
                 }
             }
         }
@@ -457,17 +461,27 @@ public partial class MouseButtonsView : UserControl
             Kind = BindingKind.KeyChord, Text = name, VirtualKey = vk,
         })));
 
-        // The same keys, but written into the mouse. A per-app key is injected by
-        // Rodent, and DirectInput games (GTA IV) ignore injected input no matter
-        // how it is sent; a key the mouse sends is a real HID report, so it always
-        // lands — at the cost of being the same key in every app.
+        // The same keys, but coming from the mouse. A key Rodent injects is ignored
+        // by DirectInput games (GTA IV) however it is sent; a key the mouse sends is
+        // a real HID report, so it always lands. Two ways to get one:
+        //  · only in this app — Rodent moves the key onto the button while the app
+        //    is in front and takes it off again after (a flash write per switch),
+        //  · for good — the button leaves the per-app system entirely.
         var vmNow = _vm;
         if (vmNow?.ButtonDev != null)
         {
-            var onMouse = BuildKeyboardMenu(vk => KeyCatalog.OnboardBytes(vk) != null,
+            var perApp = BuildKeyboardMenu(vk => KeyCatalog.OnboardBytes(vk) != null,
+                (name, vk) => Set(new ButtonBinding
+                {
+                    Kind = BindingKind.OnboardKey, Text = name, VirtualKey = vk,
+                }));
+            perApp.Header = "On the mouse, only in this app (works in games)";
+            menu.Items.Add(perApp);
+
+            var forGood = BuildKeyboardMenu(vk => KeyCatalog.OnboardBytes(vk) != null,
                 (_, vk) => KeepOnMouse(vmNow, index, KeyCatalog.OnboardBytes(vk)!));
-            onMouse.Header = "Keep on the mouse (works in every game)";
-            menu.Items.Add(onMouse);
+            forGood.Header = "On the mouse, in every app (leaves the profiles)";
+            menu.Items.Add(forGood);
         }
         menu.Items.Add(new Separator());
 
@@ -689,6 +703,9 @@ public partial class MouseButtonsView : UserControl
                     "Back" => 0x0008, "Forward" => 0x0010, _ => 0,
                 };
                 return mask == 0 ? default : (new byte[] { 0x80, 0x01, (byte)(mask >> 8), (byte)mask }, null, default);
+
+            case BindingKind.OnboardKey when KeyCatalog.OnboardBytes(b.VirtualKey) is { } onboard:
+                return (onboard, null, default);          // already an onboard action
 
             case BindingKind.KeyChord:
                 byte hid = Macro.VkToHid(b.VirtualKey);

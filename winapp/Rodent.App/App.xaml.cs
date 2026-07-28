@@ -89,6 +89,8 @@ public partial class App : Application
         Automation = new AutomationService(Profiles);
         Automation.DeviceProvider = () =>
             Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedDpiDevice);
+        Automation.ButtonProvider = () =>
+            Dispatcher.Invoke(() => (MainWindow as MainWindow)?.SelectedButtonDevice);
         Automation.Start();
         SetupTray();
 

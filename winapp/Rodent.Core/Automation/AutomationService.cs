@@ -63,18 +63,31 @@ public sealed class AutomationService : IDisposable
     {
         _profiles = profiles ?? ProfilesConfig.Load();
         // Alt-tabbing out of the game must not leave Shift held in the next app.
-        _watcher.AppChanged += a => { ReleaseHold(); AppChanged?.Invoke(a); };
+        _watcher.AppChanged += a => { ReleaseHold(); ScheduleOnboardSync(); AppChanged?.Invoke(a); };
         _hook.OnKeyDecide = HandleKey;
     }
 
     public void SetProfiles(ProfilesConfig profiles)
     {
         _profiles = profiles;
-        if (!profiles.Enabled) { StopRepeat(); ReleaseAllButtonKeys(); }   // disarming kills any loop
+        if (!profiles.Enabled)
+        {
+            StopRepeat();                                   // disarming kills any loop
+            ReleaseAllButtonKeys();
+            lock (_onboardLock) _onboardNow.Clear();        // the armer restored the mouse itself
+        }
+        else Task.Run(() => { try { SyncOnboard(); } catch { } });   // edited bindings take effect now
     }
 
     public void Start() { _watcher.Start(); _hook.Start(); }
-    public void Stop() { StopRepeat(); ReleaseAllButtonKeys(); _hook.Stop(); _watcher.Stop(); }
+    public void Stop()
+    {
+        StopRepeat();
+        ReleaseAllButtonKeys();
+        RestoreSignalKeys();        // leave no app's key stuck on the mouse
+        _hook.Stop();
+        _watcher.Stop();
+    }
 
     private bool HandleKey(int vk, bool down)
     {
@@ -164,7 +177,10 @@ public sealed class AutomationService : IDisposable
             // and up in the same instant) is invisible to anything sampling the
             // keyboard per frame — every game — and made arrow keys look dead in
             // GTA IV while macros, which take milliseconds, worked.
-            else if (binding.Kind == BindingKind.KeyChord)
+            // OnboardKey lands here only in the moment before its key has been moved
+            // onto the mouse (or if that write failed): inject it so the press is
+            // never simply lost.
+            else if (binding.Kind is BindingKind.KeyChord or BindingKind.OnboardKey)
             {
                 _pressed[button] = binding;
                 InputInjector.KeyChordDown(binding.VirtualKey, binding.Modifiers);
@@ -183,6 +199,85 @@ public sealed class AutomationService : IDisposable
             });
         }
         return true;                                        // signal keys are always ours
+    }
+
+    // ---- per-app keys that live on the mouse -----------------------------------
+    //
+    // A key Rodent injects is invisible to games that read the keyboard through
+    // DirectInput (GTA IV): they take device input only. The way to give such a
+    // game a key AND keep the button free for other apps is to move the key onto
+    // the mouse while that app is in front and take it off again afterwards — the
+    // button then sends a real HID report there, and its signal key everywhere
+    // else. Each switch is a flash write, so it happens only for buttons that ask
+    // for it, only when the mapping actually differs, and after the foreground has
+    // settled.
+
+    /// <summary>The button device to rewrite (wired by the app to the selected mouse).</summary>
+    public Func<Rodent.Core.Devices.IButtonDevice?>? ButtonProvider;
+
+    private const int OnboardSettleMs = 700;
+    private readonly object _onboardLock = new();
+    private readonly Dictionary<int, string> _onboardNow = new();   // button -> hex last written
+    private Timer? _onboardTimer;
+
+    private void ScheduleOnboardSync()
+    {
+        if (!HasOnboardKeys()) return;                   // nothing to do on this config
+        lock (_onboardLock)
+        {
+            _onboardTimer ??= new Timer(_ => { try { SyncOnboard(); } catch { } });
+            _onboardTimer.Change(OnboardSettleMs, Timeout.Infinite);  // debounce alt-tab storms
+        }
+    }
+
+    private bool HasOnboardKeys() =>
+        _profiles.Enabled && _profiles.Profiles.Any(p => p.Buttons.Values.Any(b => b.Kind == BindingKind.OnboardKey));
+
+    /// <summary>Write each button the action the foreground app needs, if it differs.</summary>
+    private void SyncOnboard()
+    {
+        var dev = ButtonProvider?.Invoke();
+        if (dev == null || !_profiles.Enabled) return;
+        string app = _watcher.CurrentApp;
+        for (int b = ProfilesConfig.FirstButton; b <= ProfilesConfig.LastButton; b++)
+        {
+            if (_profiles.IsHardware(b)) continue;        // kept on the mouse for good: not ours
+            var binding = _profiles.Resolve(app, b);
+            byte[] want = binding is { Kind: BindingKind.OnboardKey }
+                          && KeyCatalog.OnboardBytes(binding.VirtualKey) is { } bytes
+                ? bytes
+                : ProfileArmer.SignalBytes(b);
+            string hex = Convert.ToHexString(want);
+            lock (_onboardLock)
+                if (_onboardNow.TryGetValue(b, out string? cur) && cur == hex) continue;
+
+            bool ok;
+            try { ok = dev.RemapButton(b, want).ok; } catch { ok = false; }
+            if (!ok) { Rodent.Core.Diagnostics.Log.Warn($"couldn't move button {b}'s key for '{app}'"); continue; }
+            lock (_onboardLock) _onboardNow[b] = hex;
+            Rodent.Core.Diagnostics.Log.Info($"button {b} -> {(binding is { Kind: BindingKind.OnboardKey } k ? k.Text + " (on mouse)" : "signal key")} for '{app}'");
+        }
+    }
+
+    /// <summary>Put every button back on its signal key (disarm, quit, config change).</summary>
+    private void RestoreSignalKeys()
+    {
+        List<int> moved;
+        lock (_onboardLock)
+        {
+            moved = _onboardNow
+                .Where(kv => kv.Value != Convert.ToHexString(ProfileArmer.SignalBytes(kv.Key)))
+                .Select(kv => kv.Key).ToList();
+            _onboardNow.Clear();
+        }
+        if (moved.Count == 0) return;
+        var dev = ButtonProvider?.Invoke();
+        if (dev == null) return;
+        foreach (int b in moved)
+        {
+            if (_profiles.IsHardware(b)) continue;
+            try { dev.RemapButton(b, ProfileArmer.SignalBytes(b)); } catch { }
+        }
     }
 
     /// <summary>Fire the UI event off the hook thread — handlers may hop to the UI.</summary>
@@ -341,5 +436,13 @@ public sealed class AutomationService : IDisposable
         }
     }
 
-    public void Dispose() { StopRepeat(); ReleaseAllButtonKeys(); _hook.Dispose(); _watcher.Dispose(); }
+    public void Dispose()
+    {
+        StopRepeat();
+        ReleaseAllButtonKeys();
+        RestoreSignalKeys();
+        _onboardTimer?.Dispose();
+        _hook.Dispose();
+        _watcher.Dispose();
+    }
 }

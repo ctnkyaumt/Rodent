@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Rodent.Core.Automation;
 
 // New kinds are appended so existing profiles.json enum values stay stable.
-public enum BindingKind { Default, MouseClick, KeyChord, TypeText, LaunchApp, System, RepeatText, Macro, Dpi }
+public enum BindingKind { Default, MouseClick, KeyChord, TypeText, LaunchApp, System, RepeatText, Macro, Dpi, OnboardKey }
 
 /// <summary>System actions available to a binding (media / volume / session).</summary>
 public static class SystemActions
@@ -39,6 +39,7 @@ public sealed class ButtonBinding
         BindingKind.RepeatText => $"Repeat: {Text}",
         BindingKind.Macro => string.IsNullOrWhiteSpace(Text) ? "Macro" : Text,
         BindingKind.Dpi => Text,
+        BindingKind.OnboardKey => $"{Text} (on mouse)",
         BindingKind.LaunchApp => $"Launch: {System.IO.Path.GetFileNameWithoutExtension(Text)}",
         BindingKind.System => Text,
         _ => "?",
