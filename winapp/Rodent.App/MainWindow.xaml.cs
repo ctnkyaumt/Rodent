@@ -764,6 +764,16 @@ public partial class MainWindow : Window
                 ApplyProfileLighting(app);
             });
         CurrentAppLabel.Text = $"Active app: {AppInstance.Automation.CurrentApp}";
+        // The mouse can come back mapped to something else than the signal keys (a
+        // crash mid-write, G HUB, an older build) — those buttons would then never
+        // reach the host again. Put them right, quietly, on the way in.
+        if (AppInstance.Profiles.Enabled && SelectedButtonDevice is { } dev)
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                int repaired = ProfileArmer.EnsureSignalKeys(dev, AppInstance.Profiles);
+                if (repaired > 0)
+                    Rodent.Core.Diagnostics.Log.Info($"restored the signal key on {repaired} button(s)");
+            });
         _armSync = true;
         ArmedCheck.IsChecked = AppInstance.Profiles.Enabled;
         _armSync = false;

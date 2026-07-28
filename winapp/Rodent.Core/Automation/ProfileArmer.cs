@@ -29,7 +29,6 @@ public static class ProfileArmer
             var backup = new Dictionary<int, string>();
             for (int b = ProfilesConfig.FirstButton; b <= ProfilesConfig.LastButton; b++)
             {
-                if (cfg.IsHardware(b)) continue;          // kept on the mouse: not ours to touch
                 byte[]? bytes = d.ReadButtonBytes(b);
                 if (bytes == null) return (false, "couldn't read the current button mappings");
                 backup[b] = Convert.ToHexString(bytes);
@@ -40,7 +39,6 @@ public static class ProfileArmer
 
         for (int b = ProfilesConfig.FirstButton; b <= ProfilesConfig.LastButton; b++)
         {
-            if (cfg.IsHardware(b)) continue;
             var (ok, _) = d.RemapButton(b, SignalBytes(b));
             if (!ok)
             {
@@ -68,39 +66,26 @@ public static class ProfileArmer
     }
 
     /// <summary>
-    /// Keep a button on the mouse: write the action into flash and take the button
-    /// out of the armed set, so arming never overwrites it and disarming never
-    /// restores over it. This is what makes a key work in a game that ignores
-    /// injected input — the mouse itself sends it.
+    /// Make the mouse match the armed state: any of buttons 4-8 not carrying its
+    /// signal key is written back to it (and backed up first if there is no backup
+    /// yet). Heals a mapping left behind by a crash mid-write, by G HUB, or by an
+    /// older build — without it those buttons never reach the host again.
+    /// Returns how many were repaired.
     /// </summary>
-    public static (bool ok, string? error) KeepOnMouse(IButtonDevice d, ProfilesConfig cfg, int button, byte[] action)
+    public static int EnsureSignalKeys(IButtonDevice d, ProfilesConfig cfg)
     {
-        var (ok, _) = d.RemapButton(button, action);
-        if (!ok) return (false, "couldn't write to the mouse. If G HUB is running, quit it and try again");
-        if (!cfg.IsHardware(button)) cfg.HardwareButtons.Add(button);
-        cfg.HwBackup.Remove(button);                     // its old action is gone for good
-        cfg.Save();
-        try { if (!d.IsOnboardMode()) d.EnableOnboardMode(); } catch { }
-        return (true, null);
-    }
-
-    /// <summary>Hand a kept button back to the per-app engine (remap to its signal key).</summary>
-    public static (bool ok, string? error) GiveBackToProfiles(IButtonDevice d, ProfilesConfig cfg, int button)
-    {
-        cfg.HardwareButtons.Remove(button);
-        if (cfg.Enabled)
+        if (!cfg.Enabled) return 0;
+        int repaired = 0;
+        for (int b = ProfilesConfig.FirstButton; b <= ProfilesConfig.LastButton; b++)
         {
-            byte[]? bytes = d.ReadButtonBytes(button);
-            if (bytes != null) cfg.HwBackup[button] = Convert.ToHexString(bytes);
-            var (ok, _) = d.RemapButton(button, SignalBytes(button));
-            if (!ok)
-            {
-                cfg.HardwareButtons.Add(button);
-                return (false, "couldn't remap the button — it stays on the mouse");
-            }
+            byte[]? current;
+            try { current = d.ReadButtonBytes(b); } catch { continue; }
+            if (current == null || current.AsSpan().SequenceEqual(SignalBytes(b))) continue;
+            if (!cfg.HwBackup.ContainsKey(b)) cfg.HwBackup[b] = Convert.ToHexString(current);
+            try { if (d.RemapButton(b, SignalBytes(b)).ok) repaired++; } catch { }
         }
-        cfg.Save();
-        return (true, null);
+        if (repaired > 0) cfg.Save();
+        return repaired;
     }
 
     private static bool TryRestore(IButtonDevice d, ProfilesConfig cfg)

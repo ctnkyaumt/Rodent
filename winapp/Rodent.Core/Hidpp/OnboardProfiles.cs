@@ -67,24 +67,6 @@ public static class OnboardProfiles
         return headers;
     }
 
-    /// <summary>
-    /// The profile slots the device really has (sector, enabled), whatever the
-    /// marketing says. More than one means per-app mappings could be switched with
-    /// a command instead of a flash write.
-    /// </summary>
-    public static List<(int sector, bool enabled)> ReadProfileSlots(FeatureTable f)
-    {
-        var info = ReadInfo(f);
-        return info == null ? new List<(int, bool)>() : ReadHeaders(f, info.Size);
-    }
-
-    /// <summary>Sector of the profile currently active on the device, if readable.</summary>
-    public static int? ReadActiveSector(FeatureTable f)
-    {
-        var info = ReadInfo(f);
-        return info == null ? null : GetActiveSector(f, info);
-    }
-
     private static bool IsBlank(byte[] b) =>
         b.Length >= 4 && ((b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0) ||
                           (b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0xFF));

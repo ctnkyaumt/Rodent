@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Rodent.Core.Automation;
 
 // New kinds are appended so existing profiles.json enum values stay stable.
-public enum BindingKind { Default, MouseClick, KeyChord, TypeText, LaunchApp, System, RepeatText, Macro, Dpi, OnboardKey }
+public enum BindingKind { Default, MouseClick, KeyChord, TypeText, LaunchApp, System, RepeatText, Macro, Dpi }
 
 /// <summary>System actions available to a binding (media / volume / session).</summary>
 public static class SystemActions
@@ -39,7 +39,6 @@ public sealed class ButtonBinding
         BindingKind.RepeatText => $"Repeat: {Text}",
         BindingKind.Macro => string.IsNullOrWhiteSpace(Text) ? "Macro" : Text,
         BindingKind.Dpi => Text,
-        BindingKind.OnboardKey => $"{Text} (on mouse)",
         BindingKind.LaunchApp => $"Launch: {System.IO.Path.GetFileNameWithoutExtension(Text)}",
         BindingKind.System => Text,
         _ => "?",
@@ -85,17 +84,6 @@ public sealed class ProfilesConfig
     public bool Enabled { get; set; }
     public List<AppProfile> Profiles { get; set; } = new();
     public Dictionary<int, string> HwBackup { get; set; } = new(); // button -> hex of original 4 bytes
-
-    /// <summary>
-    /// Buttons left on the mouse instead of being remapped to a signal key. Their
-    /// key comes from the device as a real HID report, which is the only kind some
-    /// games accept: GTA IV reads the keyboard through DirectInput and ignores
-    /// anything injected, so a host-side remap does nothing there no matter how it
-    /// is sent. Those buttons give up per-app behavior in exchange.
-    /// </summary>
-    public List<int> HardwareButtons { get; set; } = new();
-
-    public bool IsHardware(int button) => HardwareButtons.Contains(button);
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 

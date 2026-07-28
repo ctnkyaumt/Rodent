@@ -34,7 +34,6 @@ internal static class CliRunner
         }
         if (o.ShowLogPath) { ConsoleHost.Out(LogPathReport()); ConsoleHost.Finish(); return 0; }
         if (o.ListDevices) return ListDevices();
-        if (o.OnboardInfo) return OnboardInfo();
 
         // Interactive install/uninstall are handled by the GUI (App.OnStartup).
         if (o.Install && o.Silent) return SilentInstall(o);
@@ -88,55 +87,6 @@ internal static class CliRunner
         ConsoleHost.Out(sb.ToString().TrimEnd());
         ConsoleHost.Finish();
         return 0;
-    }
-
-    /// <summary>
-    /// What the onboard memory really holds: how many profile slots, how big, and
-    /// which one is active. More than one usable slot would mean per-app mappings
-    /// could be switched with a single command instead of a flash write.
-    /// </summary>
-    private static int OnboardInfo()
-    {
-        ConsoleHost.Attach();
-        List<IDeviceDriver> devices;
-        try { devices = DeviceManager.Discover(); }
-        catch (Exception ex)
-        {
-            Log.Exception(ex, "--onboard-info");
-            ConsoleHost.Error("Device scan failed: " + ex.Message);
-            ConsoleHost.Finish();
-            return 1;
-        }
-
-        var sb = new StringBuilder();
-        int found = 0;
-        foreach (var d in devices)
-        {
-            if (d is IHidppDevice hidpp)
-            {
-                found++;
-                var f = hidpp.Features;
-                var info = Rodent.Core.Hidpp.OnboardProfiles.ReadInfo(f);
-                sb.AppendLine($"{d.Name}  [{d.VendorId:X4}:{d.ProductId:X4}]");
-                if (info == null) sb.AppendLine("    no writable onboard memory");
-                else
-                {
-                    sb.AppendLine($"    buttons: {info.Buttons}   g-shift buttons: {info.GButtons}");
-                    sb.AppendLine($"    sectors: {info.Sectors}   sector size: {info.Size} bytes");
-                    var slots = Rodent.Core.Hidpp.OnboardProfiles.ReadProfileSlots(f);
-                    sb.AppendLine($"    profile slots: {slots.Count}" +
-                                  (slots.Count == 0 ? "" : "  -> " +
-                                   string.Join(", ", slots.Select(s => $"sector 0x{s.sector:X4} {(s.enabled ? "enabled" : "disabled")}"))));
-                    int? active = Rodent.Core.Hidpp.OnboardProfiles.ReadActiveSector(f);
-                    sb.AppendLine($"    active profile: {(active == null ? "?" : $"sector 0x{active:X4}")}");
-                }
-            }
-            d.Dispose();
-        }
-        if (found == 0) sb.Append("No HID++ device found.");
-        ConsoleHost.Out(sb.ToString().TrimEnd());
-        ConsoleHost.Finish();
-        return found == 0 ? 1 : 0;
     }
 
     /// <summary>Current value of a setting, rendered the way the UI labels it.</summary>
