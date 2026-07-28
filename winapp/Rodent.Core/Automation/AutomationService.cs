@@ -193,8 +193,8 @@ public sealed class AutomationService : IDisposable
             else if (binding.Kind == BindingKind.KeyChord)
             {
                 _pressed[button] = binding;
-                var steps = KeySteps(binding);
-                if (steps != null) Post(() => _held[button] = MacroPlayer.PlayHold(steps));
+                var keySteps = KeySteps(binding);
+                if (keySteps != null) Post(() => _held[button] = MacroPlayer.PlayHold(keySteps));
                 else Post(() => InputInjector.KeyChordDown(binding.VirtualKey, binding.Modifiers));
                 Notify(button, binding);
             }
