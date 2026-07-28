@@ -669,6 +669,75 @@ public partial class MainWindow : Window
         PageDpi.Visibility = Vis(TabDpi);
         PageLighting.Visibility = Vis(TabLighting);
         PagePerApp.Visibility = Vis(TabPerApp);
+        PageAbout.Visibility = Vis(TabAbout);
+        if (TabAbout.IsChecked == true) FillAbout();
+    }
+
+    // ---- About ----
+    private const string ProjectUrl = "https://github.com/ctnkyaumt/Rodent";
+
+    private void FillAbout()
+    {
+        AboutVersion.Text = $"{App.VersionTag}  ·  installed at {Setup.Installer.InstallRoot}";
+        if (!Setup.Installer.IsInstalled)
+            AboutVersion.Text = $"{App.VersionTag}  ·  running in place (not installed)";
+        AboutPaths.Text =
+            $"Profiles and macros:  {Setup.Installer.ConfigDir}\n" +
+            $"Log:  {Rodent.Core.Diagnostics.Log.FilePath ?? Rodent.Core.Diagnostics.Log.DefaultFile}";
+        UninstallBtn.IsEnabled = Setup.Installer.IsInstalled;
+        if (!Setup.Installer.IsInstalled)
+            AboutUninstallNote.Text = "Nothing to uninstall — this copy runs from where it sits.";
+    }
+
+    private static void OpenPath(string path)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(path);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex) { Rodent.Core.Diagnostics.Log.Exception(ex, "opening " + path); }
+    }
+
+    private void OpenConfigFolder_Click(object sender, RoutedEventArgs e) => OpenPath(Setup.Installer.ConfigDir);
+
+    private void OpenLogFolder_Click(object sender, RoutedEventArgs e) =>
+        OpenPath(Rodent.Core.Diagnostics.Log.DefaultDirectory);
+
+    private void OpenProject_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ProjectUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex) { Rodent.Core.Diagnostics.Log.Exception(ex, "opening the project page"); }
+    }
+
+    /// <summary>
+    /// Hand over to the uninstaller: a second copy started with --uninstall, which
+    /// runs before the single-instance check and closes this one itself (a running
+    /// exe can't delete its own program files).
+    /// </summary>
+    private void Uninstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Dialogs.Confirm(this,
+            "Uninstall Rodent?\n\nThe program, its shortcuts and the start-with-Windows task are removed. " +
+            "The uninstaller opens next and asks whether to delete your profiles and macros too.\n\n" +
+            "Per-app profiles should be turned off first if you want the mouse's original button " +
+            "mapping back — uninstalling leaves the mouse exactly as it is now.")) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Setup.Installer.InstalledExe)
+            {
+                Arguments = "--uninstall",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            Rodent.Core.Diagnostics.Log.Exception(ex, "starting the uninstaller");
+            Dialogs.Info(this, "Couldn't start the uninstaller. Remove Rodent from Apps & features instead.");
+        }
     }
 
     private static Visibility Vis(System.Windows.Controls.Primitives.ToggleButton t) =>

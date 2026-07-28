@@ -163,6 +163,7 @@
               <RadioButton x:Name="TabDpi" Style="{StaticResource TabButton}" Content="Sensitivity" GroupName="tabs" Checked="Tab_Checked"/>
               <RadioButton x:Name="TabLighting" Style="{StaticResource TabButton}" Content="Lighting" GroupName="tabs" Checked="Tab_Checked"/>
               <RadioButton x:Name="TabPerApp" Style="{StaticResource TabButton}" Content="Per-App" GroupName="tabs" Checked="Tab_Checked"/>
+              <RadioButton x:Name="TabAbout" Style="{StaticResource TabButton}" Content="About" GroupName="tabs" Checked="Tab_Checked"/>
             </StackPanel>
           </Border>
 
@@ -314,6 +315,43 @@
                   <Button Content="Add profile…" Width="120" Margin="0,0,10,0" Click="AddProfile_Click"/>
                   <Button Content="Save profiles" Width="120" Click="SaveProfiles_Click"/>
                 </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- About page -->
+            <ScrollViewer x:Name="PageAbout" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+              <StackPanel MaxWidth="640" Margin="24" HorizontalAlignment="Center">
+                <TextBlock Text="Rodent" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold"/>
+                <TextBlock x:Name="AboutVersion" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0"/>
+                <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,14"
+                           Text="A configurator for Logitech HID++ mice (and a few other brands) that talks to the device directly — button assignments, macros, DPI slots, lighting and per-app profiles, without G HUB running."/>
+
+                <Border Style="{StaticResource CardStyle}">
+                  <StackPanel>
+                    <TextBlock Text="Where things live" Foreground="{StaticResource Text}" FontSize="15" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="AboutPaths" Foreground="{StaticResource Muted}" FontSize="12"
+                               TextWrapping="Wrap" Margin="0,6,0,10"/>
+                    <StackPanel Orientation="Horizontal">
+                      <Button Content="Open settings folder" Width="160" Margin="0,0,10,0" Click="OpenConfigFolder_Click"/>
+                      <Button Content="Open log folder" Width="140" Margin="0,0,10,0" Click="OpenLogFolder_Click"/>
+                      <Button Content="Project page" Width="120" Click="OpenProject_Click"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}" Margin="0,14,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                      <TextBlock Text="Uninstall Rodent" Foreground="{StaticResource Text}" FontSize="15" FontWeight="SemiBold"/>
+                      <TextBlock x:Name="AboutUninstallNote" Foreground="{StaticResource Muted}" FontSize="12"
+                                 TextWrapping="Wrap" Margin="0,3,12,0"
+                                 Text="Removes the program, its shortcuts and the start-with-Windows task. Your profiles and macros are kept unless you say otherwise."/>
+                    </StackPanel>
+                    <Button x:Name="UninstallBtn" Grid.Column="1" Content="Uninstall…" Width="120"
+                            VerticalAlignment="Center" Click="Uninstall_Click"/>
+                  </Grid>
+                </Border>
               </StackPanel>
             </ScrollViewer>
           </Grid>
